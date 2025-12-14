@@ -181,6 +181,12 @@ export class IndexedDBDatabase {
 
   // 사용자 로그인
   async loginUser(credentials: { username: string; password: string }): Promise<{ user: User; token: string }> {
+    // 데이터베이스 초기화 보장
+    if (!this.db) {
+      console.log('🗄️ 로그인 시 데이터베이스 초기화 중...');
+      await this.initialize();
+    }
+    
     const store = await this.getStore('users');
     
     return new Promise((resolve, reject) => {
@@ -191,27 +197,32 @@ export class IndexedDBDatabase {
         const user = request.result as User;
         
         if (!user) {
-          reject(new Error('사용자를 찾을 수 없습니다.'));
+          console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
+          reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
           return;
         }
 
         const isValidPassword = await this.verifyPassword(credentials.password, user.passwordHash);
         if (!isValidPassword) {
+          console.error('❌ 비밀번호가 올바르지 않습니다.');
           reject(new Error('비밀번호가 올바르지 않습니다.'));
           return;
         }
 
         if (!user.isApproved) {
+          console.warn('⚠️ 사용자가 아직 승인되지 않았습니다:', user.username);
           reject(new Error('관리자 승인을 기다리고 있습니다. 승인 후 로그인할 수 있습니다.'));
           return;
         }
 
         const token = this.generateToken(user);
+        console.log('✅ 로그인 성공:', user.username);
         resolve({ user, token });
       };
       
-      request.onerror = () => {
-        reject(new Error('로그인 실패'));
+      request.onerror = (event) => {
+        console.error('❌ 로그인 실패:', event);
+        reject(new Error('로그인 중 오류가 발생했습니다. 데이터베이스를 확인해주세요.'));
       };
     });
   }
@@ -258,6 +269,29 @@ export class IndexedDBDatabase {
         // 최신 순으로 정렬
         charts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         resolve(charts);
+      };
+      
+      request.onerror = () => {
+        reject(new Error('환자 차트 조회 실패'));
+      };
+    });
+  }
+
+  // 같은 fileNo를 가진 모든 차트 조회 (이전 차트 참조용)
+  async getPatientChartsByFileNo(userId: string, fileNo: string): Promise<PatientChart[]> {
+    const store = await this.getStore('patientCharts');
+    
+    return new Promise((resolve, reject) => {
+      const index = store.index('fileNo');
+      const request = index.getAll(fileNo);
+      
+      request.onsuccess = () => {
+        const charts = request.result as PatientChart[];
+        // userId로 필터링 (다른 사용자의 차트 제외)
+        const userCharts = charts.filter(chart => chart.userId === userId);
+        // 날짜 순으로 정렬 (오래된 것부터)
+        userCharts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        resolve(userCharts);
       };
       
       request.onerror = () => {
@@ -638,6 +672,41 @@ export class IndexedDBDatabase {
       
       request.onsuccess = () => resolve();
       request.onerror = () => reject(new Error('사용자 삭제에 실패했습니다.'));
+    });
+  }
+
+  // 사용자 비밀번호 업데이트 (테스트 사용자용)
+  async updateUserPassword(username: string, newPassword: string): Promise<void> {
+    if (!this.db) throw new Error('데이터베이스가 초기화되지 않았습니다.');
+    
+    return new Promise(async (resolve, reject) => {
+      const transaction = this.db!.transaction(['users'], 'readwrite');
+      const store = transaction.objectStore('users');
+      const index = store.index('username');
+      const request = index.get(username);
+      
+      request.onsuccess = async () => {
+        const user = request.result;
+        if (!user) {
+          reject(new Error('사용자를 찾을 수 없습니다.'));
+          return;
+        }
+        
+        // 새 비밀번호 해시 생성
+        const newPasswordHash = await this.hashPassword(newPassword);
+        user.passwordHash = newPasswordHash;
+        
+        const updateRequest = store.put(user);
+        updateRequest.onsuccess = () => {
+          console.log('✅ 사용자 비밀번호가 업데이트되었습니다:', username);
+          resolve();
+        };
+        updateRequest.onerror = () => reject(new Error('비밀번호 업데이트에 실패했습니다.'));
+      };
+      
+      request.onerror = () => {
+        reject(new Error('사용자 정보를 가져오는데 실패했습니다.'));
+      };
     });
   }
 }

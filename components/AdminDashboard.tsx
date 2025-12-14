@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { database } from '../lib/database';
 import type { User } from '../types/auth';
+import { NotificationSettings } from './NotificationSettings';
 
 export const AdminDashboard: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -87,7 +89,15 @@ export const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">관리자 대시보드</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">관리자 대시보드</h1>
+            <button
+              onClick={() => setShowNotificationSettings(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              알림 설정
+            </button>
+          </div>
           
           {message && (
             <div className={`mb-6 p-4 rounded-md ${
@@ -222,6 +232,11 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* 알림 설정 모달 */}
+      {showNotificationSettings && (
+        <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
+      )}
     </div>
   );
 };

@@ -159,3 +159,63 @@ export const sendRegistrationNotification = async (data: RegistrationNotificatio
 export const getBrowserInfo = (): string => {
   return navigator.userAgent;
 };
+
+// SMS 알림 발송 (Twilio 사용)
+export const sendSMSNotification = async (message: string, phoneNumber: string): Promise<boolean> => {
+  try {
+    console.log('📱 SMS 알림 발송 시작:', { message, phoneNumber });
+    
+    // Twilio API 호출 (서버 사이드에서 처리해야 함)
+    // 현재는 클라이언트 사이드이므로 실제 SMS 발송은 서버에서 처리
+    console.log('📱 SMS 알림 데이터:', { message, phoneNumber });
+    
+    // 실제 구현 시에는 서버 API를 호출하여 SMS 발송
+    // fetch('/api/send-sms', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ message, phoneNumber })
+    // });
+    
+    return true;
+  } catch (error) {
+    console.error('❌ SMS 알림 발송 실패:', error);
+    return false;
+  }
+};
+
+// 관리자 알림 설정
+export interface AdminNotificationSettings {
+  email: string;
+  phoneNumber: string;
+  enableEmailNotifications: boolean;
+  enableSMSNotifications: boolean;
+}
+
+// 통합 알림 발송
+export const sendAdminNotification = async (
+  type: 'registration' | 'login',
+  data: any,
+  settings: AdminNotificationSettings
+): Promise<{ email: boolean; sms: boolean }> => {
+  const results = { email: false, sms: false };
+  
+  // 이메일 알림
+  if (settings.enableEmailNotifications) {
+    if (type === 'registration') {
+      results.email = await sendRegistrationNotification(data);
+    } else {
+      results.email = await sendLoginNotification(data);
+    }
+  }
+  
+  // SMS 알림
+  if (settings.enableSMSNotifications && settings.phoneNumber) {
+    const smsMessage = type === 'registration' 
+      ? `새 회원가입: ${data.username} (${data.clinicName})`
+      : `로그인: ${data.username} (${data.clinicName})`;
+    
+    results.sms = await sendSMSNotification(smsMessage, settings.phoneNumber);
+  }
+  
+  return results;
+};

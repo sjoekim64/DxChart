@@ -74,6 +74,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dispatch({ type: 'LOGIN_START' });
     
     try {
+      console.log('🔐 로그인 시도:', credentials.username);
+      
+      // 데이터베이스 초기화 보장
+      console.log('🗄️ 데이터베이스 초기화 확인 중...');
+      await database.initialize();
+      console.log('✅ 데이터베이스 초기화 완료');
+      
       const result = await database.loginUser(credentials);
       
       localStorage.setItem('auth_token', result.token);
@@ -110,10 +117,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       return { success: true, data: result };
     } catch (error) {
+      console.error('❌ 로그인 실패:', error);
       dispatch({ type: 'LOGIN_FAILURE' });
+      const errorMessage = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+      console.error('❌ 에러 메시지:', errorMessage);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.'
+        error: errorMessage
       };
     }
   };
@@ -138,9 +148,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       console.log('✅ 회원가입 성공:', result);
       
-      // 회원가입 성공 시 이메일 알림 발송 (비동기로 처리)
-      console.log('📧 회원가입 알림 이메일 발송 시작...');
-      sendRegistrationNotification({
+      // 회원가입 성공 시 통합 알림 발송 (비동기로 처리)
+      console.log('📧 회원가입 알림 발송 시작...');
+      
+      // 관리자 알림 설정 로드
+      const adminSettings = JSON.parse(localStorage.getItem('adminNotificationSettings') || '{}');
+      const defaultSettings = {
+        email: 'stjoe1004@gmail.com',
+        phoneNumber: '',
+        enableEmailNotifications: true,
+        enableSMSNotifications: false,
+        ...adminSettings
+      };
+      
+      const { sendAdminNotification } = await import('../lib/emailService');
+      sendAdminNotification('registration', {
         username: data.username,
         clinicName: data.clinicName,
         therapistName: data.therapistName,
@@ -148,11 +170,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         registrationTime: new Date().toLocaleString('ko-KR'),
         userAgent: getBrowserInfo(),
         ipAddress: await getClientIP()
-      }).then(success => {
-        console.log('📧 회원가입 알림 이메일 발송 결과:', success ? '성공' : '실패');
+      }, defaultSettings).then(results => {
+        console.log('📧 회원가입 알림 발송 결과:', results);
       }).catch(error => {
-        console.error('❌ 회원가입 알림 이메일 발송 실패:', error);
-        // 이메일 발송 실패는 회원가입에 영향을 주지 않음
+        console.error('❌ 회원가입 알림 발송 실패:', error);
+        // 알림 발송 실패는 회원가입에 영향을 주지 않음
       });
       
       // 회원가입은 성공했지만 승인 대기 상태이므로 로그인하지 않음
@@ -206,13 +228,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // 앱 시작 시 토큰 검증
+  // 앱 시작 시 토큰 검증 및 테스트 사용자 초기화
   useEffect(() => {
-    if (state.token) {
-      verifyToken();
-    } else {
-      dispatch({ type: 'VERIFY_FAILURE' });
-    }
+    const initialize = async () => {
+      // 데이터베이스 초기화 및 테스트 사용자 생성 (로그인 전에 실행)
+      try {
+        await database.initialize();
+        const { initializeTestUser } = await import('../lib/sampleData');
+        await initializeTestUser();
+      } catch (error) {
+        console.error('❌ 앱 초기화 실패:', error);
+      }
+      
+      // 토큰 검증
+      if (state.token) {
+        verifyToken();
+      } else {
+        dispatch({ type: 'VERIFY_FAILURE' });
+      }
+    };
+    
+    initialize();
   }, []);
 
   const value: AuthContextType = {

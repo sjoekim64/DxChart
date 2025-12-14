@@ -45,6 +45,9 @@ export const SOAPReport: React.FC<SOAPReportProps> = ({ data, onClose }) => {
       tongue: patientData.tongue,
       pulse: patientData.pulse,
       
+      // 관절 가동 범위
+      rangeOfMotion: patientData.rangeOfMotion,
+      
       // 치료 반응
       respondToCare: patientData.respondToCare,
     };
@@ -205,8 +208,41 @@ export const SOAPReport: React.FC<SOAPReportProps> = ({ data, onClose }) => {
                     {hipaaData.pulse.notes && ` ${hipaaData.pulse.notes}`}
                   </p>
                   
+                  {Object.keys(hipaaData.rangeOfMotion || {}).length > 0 && (
+                    <div className="mb-3">
+                      <strong>Range of Motion Assessment:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
+                        {Object.keys(hipaaData.rangeOfMotion).map(joint => {
+                          const jointData = hipaaData.rangeOfMotion[joint];
+                          const measurements: string[] = [];
+                          
+                          if (jointData.flexion) measurements.push(`Flexion: ${jointData.flexion}°`);
+                          if (jointData.extension) measurements.push(`Extension: ${jointData.extension}°`);
+                          if (jointData.abduction) measurements.push(`Abduction: ${jointData.abduction}°`);
+                          if (jointData.adduction) measurements.push(`Adduction: ${jointData.adduction}°`);
+                          if (jointData.internalRotation) measurements.push(`Internal Rotation: ${jointData.internalRotation}°`);
+                          if (jointData.externalRotation) measurements.push(`External Rotation: ${jointData.externalRotation}°`);
+                          if (jointData.lateralFlexion) measurements.push(`Lateral Flexion: ${jointData.lateralFlexion}°`);
+                          if (jointData.rotation) measurements.push(`Rotation: ${jointData.rotation}°`);
+                          
+                          if (measurements.length === 0) return null;
+                          
+                          return (
+                            <li key={joint} className="text-sm">
+                              <strong>{joint}:</strong> {measurements.join(', ')}
+                              {jointData.notes && ` (${jointData.notes})`}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  
                   <p className="mb-3">
-                    <strong>Physical Examination:</strong> The patient appears alert and oriented. No acute distress noted. Range of motion and functional assessment performed as indicated by presenting symptoms.
+                    <strong>Physical Examination:</strong> The patient appears alert and oriented. No acute distress noted.
+                    {Object.keys(hipaaData.rangeOfMotion || {}).length > 0 
+                      ? ' Range of motion assessment performed as documented above.' 
+                      : ' Range of motion and functional assessment performed as indicated by presenting symptoms.'}
                   </p>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import { PrintableView } from './components/PrintableView.tsx';
 import { PatientList } from './components/PatientList.tsx';
 import { SOAPReport } from './components/SOAPReport';
 import { AdminRoute } from './components/AdminRoute';
+import { PDFUploader } from './components/PDFUploader';
 import { useAdminMode } from './hooks/useAdminMode';
 import type { PatientData } from './types.ts';
 import { database } from './lib/database';
@@ -20,10 +21,10 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
     clinicLogo: clinicInfo?.clinicLogo || '',
     fileNo: '', name: '', date: new Date().toISOString().split('T')[0],
     address: '', phone: '',
-    occupation: '', dob: '', age: '', sex: '',
+    occupation: '', dob: '', age: '', sex: 'F',
     heightFt: '', heightIn: '', weight: '',
-    temp: '97', bpSystolic: '', bpDiastolic: '', heartRate: '', heartRhythm: 'Normal',
-    lungRate: '17', lungSound: 'Clear',
+    temp: '', bpSystolic: '', bpDiastolic: '', heartRate: '', heartRhythm: '',
+    lungRate: '17', lungSound: '',
     chiefComplaint: {
       selectedComplaints: [], otherComplaint: '', location: '', locationDetails: [], onsetValue: '', onsetUnit: '',
       provocation: [], provocationOther: '', palliation: [], palliationOther: '', quality: [], qualityOther: '',
@@ -35,51 +36,76 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
       familyHistory: [], familyHistoryOther: '', allergy: [], allergyOther: '',
     },
     reviewOfSystems: {
-        coldHot: { sensation: 'normal', parts: [], other: '' },
-        sleep: { hours: '7-8', quality: ['O.K.'], issues: [], other: '' },
-        sweat: { present: 'no', time: '', parts: [], other: '' },
-        eye: { symptoms: ['normal'], other: '' },
-        mouthTongue: { symptoms: 'normal', taste: 'bland', other: '' },
-        throatNose: { symptoms: ['normal'], mucusColor: [], other: '' },
-        edema: { present: 'no', parts: [], other: '' },
-        drink: { thirsty: 'normal', preference: 'normal', amount: '', other: '' },
-        digestion: { symptoms: ['good'], other: '' },
-        appetiteEnergy: { appetite: 'good', energy: '8', other: '' },
-        stool: { frequencyValue: '1', frequencyUnit: 'day', form: 'normal', color: 'brown', symptoms: [], other: '' },
-        urine: { frequencyDay: '4-6', frequencyNight: '0-1', amount: 'normal', color: 'pale yellow', symptoms: [], other: '' },
-        menstruation: { status: '', menopauseAge: '', lmp: '', cycleLength: '', duration: '', amount: 'normal', color: 'fresh red', clots: 'no', pain: 'no', painDetails: '', pms: [], other: '' },
-        discharge: { present: 'no', symptoms: [], other: '' }
+        coldHot: { sensation: '', parts: [], other: '' },
+        sleep: { hours: '', quality: [], issues: [], other: '' },
+        sweat: { present: '', time: '', parts: [], other: '' },
+        eye: { symptoms: [], other: '' },
+        mouthTongue: { symptoms: '', taste: '', other: '' },
+        throatNose: { symptoms: [], mucusColor: [], other: '' },
+        edema: { present: '', parts: [], other: '' },
+        drink: { thirsty: '', preference: '', amount: '', other: '' },
+        digestion: { symptoms: [], other: '' },
+        appetiteEnergy: { appetite: '', energy: '', other: '' },
+        stool: { frequencyValue: '', frequencyUnit: '', form: '', color: 'brown', symptoms: [], other: '' },
+        urine: { frequencyDay: '', frequencyNight: '', amount: '', color: 'pale yellow', symptoms: [], other: '' },
+        menstruation: { status: '', menopauseAge: '', lmp: '', cycleLength: '', duration: '', amount: '', color: '', clots: '', pain: '', painDetails: '', pms: [], other: '' },
+        discharge: { present: '', symptoms: [], other: '' }
     },
     tongue: {
-        body: { color: 'Pink', colorModifiers: [], shape: 'Normal', shapeModifiers: [], locations: [], locationComments: '' },
-        coating: { color: 'White', quality: ['Thin'], notes: '' },
+        body: { color: '', colorModifiers: [], shape: '', shapeModifiers: [], locations: [], locationComments: '' },
+        coating: { color: '', quality: [], notes: '' },
     },
     pulse: {
         overall: [],
         notes: '',
+        cun: '',
+        guan: '',
+        chi: '',
     },
+    rangeOfMotion: {},
     diagnosisAndTreatment: {
       eightPrinciples: { exteriorInterior: '', heatCold: '', excessDeficient: '', yangYin: '' },
       etiology: '', tcmDiagnosis: '', treatmentPrinciple: '', 
-      acupunctureMethod: ['TCM Body'],
+      acupunctureMethod: [],
       acupunctureMethodOther: '',
       acupuncturePoints: '', herbalTreatment: '',
-      selectedTreatment: 'None', otherTreatmentText: '', icd: '', cpt: '',
+      selectedTreatment: [], otherTreatmentText: '', icd: '', cpt: '',
       therapistName: clinicInfo?.therapistName || '', therapistLicNo: clinicInfo?.therapistLicenseNo || '',
     },
     respondToCare: {
-        status: 'Same',
+        status: '',
         improvedDays: '',
         notes: '',
     }
   };
 
   if (chartType === 'follow-up') {
+    // 재방문 환자는 일반적인 기본값으로 설정
     return {
         ...baseState,
-        chiefComplaint: {
-            ...baseState.chiefComplaint,
-            // Follow-up charts don't need these pre-filled, will be hidden
+        reviewOfSystems: {
+            coldHot: { sensation: 'normal', parts: [], other: '' },
+            sleep: { hours: '7-8', quality: ['O.K.'], issues: [], other: '' },
+            sweat: { present: 'no', time: '', parts: [], other: '' },
+            eye: { symptoms: ['normal'], other: '' },
+            mouthTongue: { symptoms: 'normal', taste: 'normal', other: '' },
+            throatNose: { symptoms: ['normal'], mucusColor: [], other: '' },
+            edema: { present: 'no', parts: [], other: '' },
+            drink: { thirsty: 'normal', preference: 'normal', amount: 'normal', other: '' },
+            digestion: { symptoms: ['good'], other: '' },
+            appetiteEnergy: { appetite: 'good', energy: '7', other: '' },
+            stool: { frequencyValue: '1', frequencyUnit: 'day', form: 'normal', color: 'brown', symptoms: [], other: '' },
+            urine: { frequencyDay: '4-6', frequencyNight: '0-1', amount: 'normal', color: 'pale yellow', symptoms: [], other: '' },
+            menstruation: { status: '', menopauseAge: '', lmp: '', cycleLength: '', duration: '', amount: '', color: '', clots: '', pain: '', painDetails: '', pms: [], other: '' },
+            discharge: { present: 'no', symptoms: [], other: '' }
+        },
+        tongue: {
+            body: { color: 'Pink', colorModifiers: [], shape: 'Normal', shapeModifiers: [], locations: [], locationComments: '' },
+            coating: { color: 'White', quality: ['Thin'], notes: '' },
+        },
+        pulse: {
+            overall: ['Normal'],
+            notes: '',
         },
         diagnosisAndTreatment: {
             ...baseState.diagnosisAndTreatment,
@@ -88,8 +114,25 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
     };
   }
 
+  // 신규환자는 기본값으로 설정 (정상 상태)
   return {
     ...baseState,
+    reviewOfSystems: {
+        coldHot: { sensation: 'normal', parts: [], other: '' },
+        sleep: { hours: '', quality: [], issues: [], other: '' },
+        sweat: { present: 'no', time: '', parts: [], other: '' },
+        eye: { symptoms: ['normal'], other: '' },
+        mouthTongue: { symptoms: 'normal', taste: 'normal', other: '' },
+        throatNose: { symptoms: ['normal'], mucusColor: [], other: '' },
+        edema: { present: 'no', parts: [], other: '' },
+        drink: { thirsty: 'normal', preference: 'normal', amount: '', other: '' },
+        digestion: { symptoms: ['good'], other: '' },
+        appetiteEnergy: { appetite: 'good', energy: '', other: '' },
+        stool: { frequencyValue: '', frequencyUnit: '', form: 'normal', color: 'brown', symptoms: [], other: '' },
+        urine: { frequencyDay: '', frequencyNight: '', amount: 'normal', color: 'pale yellow', symptoms: [], other: '' },
+        menstruation: { status: '', menopauseAge: '', lmp: '', cycleLength: '', duration: '', amount: '', color: '', clots: '', pain: '', painDetails: '', pms: [], other: '' },
+        discharge: { present: 'no', symptoms: [], other: '' }
+    },
     diagnosisAndTreatment: {
         ...baseState.diagnosisAndTreatment,
         cpt: '99202, 97810, 97811, 97026'
@@ -105,6 +148,7 @@ const PatientChartApp: React.FC = () => {
   const [clinicInfo, setClinicInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSOAPReport, setShowSOAPReport] = useState(false);
+  const [showPDFUploader, setShowPDFUploader] = useState(false);
 
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const { isAdminMode, clearAdminMode } = useAdminMode();
@@ -225,15 +269,161 @@ const PatientChartApp: React.FC = () => {
   };
 
   const handleNewPatient = () => {
-    setCurrentPatient(getNewPatientSample(clinicInfo));
+    setCurrentPatient(getNewPatientState('new', clinicInfo));
     setFormMode('new');
     setView('form');
   }
+
+  // 기존 샘플 데이터 제거 함수
+  const clearSampleData = async () => {
+    if (!user) return;
+    
+    try {
+      const charts = await database.getPatientCharts(user.id);
+      const sampleCharts = charts.filter(chart => 
+        chart.fileNo === 'CH-12345' || chart.fileNo === 'CH-67890'
+      );
+      
+      for (const chart of sampleCharts) {
+        await database.deletePatientChart(user.id, chart.id);
+      }
+      
+      // 환자 목록 새로고침
+      const updatedCharts = await database.getPatientCharts(user.id);
+      const updatedPatientData = updatedCharts.map(chart => JSON.parse(chart.chartData));
+      setPatients(updatedPatientData);
+      
+      console.log('샘플 데이터가 제거되었습니다.');
+    } catch (error) {
+      console.error('샘플 데이터 제거 실패:', error);
+    }
+  }
   
-  const handleNewFollowUpChart = () => {
-    setCurrentPatient(getFollowUpPatientSample(clinicInfo));
+  const handleNewFollowUpChart = async (selectedPatient: PatientData) => {
+    if (!user) return;
+    
+    try {
+      // 선택된 환자의 최근 차트 불러오기
+      const charts = await database.getPatientChartsByFileNo(user.id, selectedPatient.fileNo);
+      
+      // 최신 차트 찾기 (날짜 기준)
+      const latestChart = charts
+        .map(chart => JSON.parse(chart.chartData) as PatientData)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      
+      if (latestChart) {
+        // 최근 차트 정보를 기반으로 새로운 follow-up 차트 생성
+        const followUpChart: PatientData = {
+          ...latestChart,
+          chartType: 'follow-up',
+          date: new Date().toISOString().split('T')[0], // 오늘 날짜로 변경
+          // Chief Complaint는 초기화 (새로운 방문이므로)
+          chiefComplaint: {
+            ...latestChart.chiefComplaint,
+            remark: '', // Follow-up Notes는 비워둠
+            presentIllness: '', // HPI는 새로 작성
+          },
+          // Respond to Care는 초기화
+          respondToCare: {
+            status: '',
+            improvedDays: '',
+            notes: '',
+          },
+          // 진단 및 치료는 초기화 (새로운 평가 필요)
+          diagnosisAndTreatment: {
+            ...latestChart.diagnosisAndTreatment,
+            eightPrinciples: { exteriorInterior: '', heatCold: '', excessDeficient: '', yangYin: '' },
+            etiology: '',
+            tcmDiagnosis: '',
+            treatmentPrinciple: '',
+            acupunctureMethod: [],
+            acupunctureMethodOther: '',
+            acupuncturePoints: '',
+            herbalTreatment: '',
+            selectedTreatment: [],
+            otherTreatmentText: '',
+            icd: '',
+            cpt: '99212, 97813, 97814', // Follow-up CPT 코드
+          },
+          // Vital signs는 초기화 (새로 측정)
+          temp: '',
+          bpSystolic: '',
+          bpDiastolic: '',
+          heartRate: '',
+          heartRhythm: '',
+          lungRate: latestChart.lungRate || '17',
+          lungSound: '',
+          // Review of Systems는 이전 차트 정보 유지 (크게 변하지 않으므로)
+          // Tongue와 Pulse는 초기화 (새로 진단)
+          tongue: {
+            body: { color: '', colorModifiers: [], shape: '', shapeModifiers: [], locations: [], locationComments: '' },
+            coating: { color: '', quality: [], notes: '' },
+          },
+          pulse: {
+            overall: [],
+            notes: '',
+            cun: '',
+            guan: '',
+            chi: '',
+          },
+        };
+        
+        setCurrentPatient(followUpChart);
+      } else {
+        // 차트가 없으면 기본 follow-up 차트 생성
+        const baseFollowUp = getNewPatientState('follow-up', clinicInfo);
+        setCurrentPatient({
+          ...baseFollowUp,
+          fileNo: selectedPatient.fileNo,
+          name: selectedPatient.name,
+          dob: selectedPatient.dob,
+          age: selectedPatient.age,
+          sex: selectedPatient.sex,
+          address: selectedPatient.address,
+          phone: selectedPatient.phone,
+          occupation: selectedPatient.occupation,
+          heightFt: selectedPatient.heightFt,
+          heightIn: selectedPatient.heightIn,
+          weight: selectedPatient.weight,
+        });
+      }
+    } catch (error) {
+      console.error('이전 차트 불러오기 실패:', error);
+      // 에러 발생 시 기본 follow-up 차트 생성
+      const baseFollowUp = getNewPatientState('follow-up', clinicInfo);
+      setCurrentPatient({
+        ...baseFollowUp,
+        fileNo: selectedPatient.fileNo,
+        name: selectedPatient.name,
+        dob: selectedPatient.dob,
+        age: selectedPatient.age,
+        sex: selectedPatient.sex,
+        address: selectedPatient.address,
+        phone: selectedPatient.phone,
+        occupation: selectedPatient.occupation,
+        heightFt: selectedPatient.heightFt,
+        heightIn: selectedPatient.heightIn,
+        weight: selectedPatient.weight,
+      });
+    }
+    
     setFormMode('new');
     setView('form');
+  };
+
+  const handleStartFollowUpFromPDF = () => {
+    setShowPDFUploader(true);
+  };
+
+  const handlePDFExtractComplete = (patientData: PatientData) => {
+    setShowPDFUploader(false);
+    setCurrentPatient(patientData);
+    setFormMode('new');
+    setView('form');
+  };
+
+  const handlePDFUploadCancel = () => {
+    setShowPDFUploader(false);
   };
 
   const handleSelectPatient = (patient: PatientData) => {
@@ -294,7 +484,9 @@ const PatientChartApp: React.FC = () => {
                     onNewPatient={handleNewPatient} 
                     onDeletePatient={handleDeletePatient} 
                     onStartFollowUp={handleNewFollowUpChart}
+                    onStartFollowUpFromPDF={handleStartFollowUpFromPDF}
                     onSOAPReport={handleSOAPReport}
+                    onClearSampleData={clearSampleData}
                 />;
     }
   };
@@ -354,6 +546,15 @@ const PatientChartApp: React.FC = () => {
         <SOAPReport 
           data={currentPatient} 
           onClose={handleCloseSOAPReport} 
+        />
+      )}
+
+      {/* PDF Uploader Modal */}
+      {showPDFUploader && (
+        <PDFUploader
+          onExtractComplete={handlePDFExtractComplete}
+          onCancel={handlePDFUploadCancel}
+          clinicInfo={clinicInfo}
         />
       )}
     </div>

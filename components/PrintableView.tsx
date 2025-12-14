@@ -145,6 +145,56 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
     });
   };
 
+  const handlePrintPdf = () => {
+    const element = document.getElementById('print-area');
+    if (!element) {
+        console.error('Print area not found');
+        return;
+    }
+
+    // 브라우저 인쇄 기능 사용 (텍스트 복사 가능한 PDF 생성)
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
+        return;
+    }
+
+    // 스타일 복사
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(style => style.outerHTML)
+      .join('\n');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${data.fileNo}_${data.name}</title>
+          ${styles}
+          <style>
+            @media print {
+              @page { margin: 0.25in; }
+              body { margin: 0; padding: 0; }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+              background: white;
+            }
+            .print\\:hidden { display: none !important; }
+          </style>
+        </head>
+        <body>
+          ${element.innerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
     const handleGenerateSoapNote = async () => {
         setIsGeneratingSoap(true);
         setSoapNote('Generating, please wait...');
@@ -158,7 +208,8 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         ${[...data.chiefComplaint.selectedComplaints, data.chiefComplaint.otherComplaint].filter(Boolean).join(', ')}
         
         PRESENT ILLNESS (HPI):
-        ${isFollowUp ? data.chiefComplaint.remark : data.chiefComplaint.presentIllness}
+        ${data.chiefComplaint.presentIllness || 'N/A'}
+        ${isFollowUp && data.chiefComplaint.remark ? `\n\nFollow-up Notes / Changes:\n${data.chiefComplaint.remark}` : ''}
         
         REVIEW OF SYSTEMS SUMMARY:
         ${rosItems.map(item => `- ${item.label}: ${typeof item.value === 'string' ? item.value : 'Complex data'}`).join('\n')}
@@ -195,12 +246,82 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         - The output should be plain text, clearly structured with S, O, A, P headings.`;
 
         try {
-            const ai = new GoogleGenAI({ apiKey: "AIzaSyANTMkQtJzhKwxp9sPWdpHHqI9M4RumzRY" });
+            const apiKey = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) {
+              throw new Error('GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+            }
+            const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
             });
-            setSoapNote(response.text.trim());
+            const generatedSoap = response.text.trim();
+            setSoapNote(generatedSoap);
+            
+            // SOAP 노트를 PDF로 저장 - 브라우저 인쇄 기능 사용 (텍스트 복사 가능)
+            const soapFileName = `${data.fileNo}_${data.name.replace(/\s/g, '_')}_SOAP.pdf`;
+            
+            // 인쇄용 창 생성
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
+                return;
+            }
+
+            // 스타일 복사
+            const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+              .map(style => style.outerHTML)
+              .join('\n');
+
+            printWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>${soapFileName}</title>
+                  ${styles}
+                  <style>
+                    @media print {
+                      @page { margin: 0.5in; }
+                      body { margin: 0; padding: 0; }
+                    }
+                    body {
+                      font-family: Arial, sans-serif;
+                      padding: 40px;
+                      background: white;
+                      color: black;
+                    }
+                    h1 {
+                      text-align: center;
+                      margin-bottom: 20px;
+                      font-size: 24px;
+                    }
+                    .patient-info {
+                      margin-bottom: 20px;
+                      font-size: 14px;
+                    }
+                    .soap-content {
+                      white-space: pre-wrap;
+                      line-height: 1.8;
+                      font-size: 12px;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <h1>SOAP Note</h1>
+                  <div class="patient-info">
+                    <strong>Patient:</strong> ${data.name}<br>
+                    <strong>File No:</strong> ${data.fileNo}<br>
+                    <strong>Date:</strong> ${data.date}
+                  </div>
+                  <div class="soap-content">${generatedSoap}</div>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+            
+            setTimeout(() => {
+              printWindow.print();
+            }, 500);
         } catch (error) {
             console.error("Error generating SOAP note:", error);
             setSoapNote("Failed to generate SOAP note. Please check the console for details.");
@@ -274,17 +395,28 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
   
   const renderCombinedOtherTreatments = () => {
     const { selectedTreatment, otherTreatmentText } = data.diagnosisAndTreatment;
+    const treatments = Array.isArray(selectedTreatment) ? selectedTreatment : (selectedTreatment ? [selectedTreatment] : []);
     
-    if (!selectedTreatment || selectedTreatment === 'None') {
+    if (!treatments || treatments.length === 0 || (treatments.length === 1 && treatments[0] === 'None')) {
         return 'None';
     }
 
-    if (selectedTreatment === 'Other' || selectedTreatment === 'Auricular Acupuncture') {
-        const label = selectedTreatment === 'Auricular Acupuncture' ? 'Auricular Acupuncture / Ear Seeds' : selectedTreatment;
-        return otherTreatmentText ? `${label}: ${otherTreatmentText}` : label;
+    const filteredTreatments = treatments.filter(t => t !== 'None');
+    if (filteredTreatments.length === 0) {
+        return 'None';
     }
+
+    const treatmentLabels = filteredTreatments.map(treatment => {
+        if (treatment === 'Auricular Acupuncture') {
+            return otherTreatmentText ? `Auricular Acupuncture / Ear Seeds: ${otherTreatmentText}` : 'Auricular Acupuncture / Ear Seeds';
+        } else if (treatment === 'Other') {
+            return otherTreatmentText ? `Other: ${otherTreatmentText}` : 'Other';
+        } else {
+            return treatment;
+        }
+    });
     
-    return selectedTreatment;
+    return treatmentLabels.join(', ');
   };
 
   const renderTongueSection = () => {
@@ -486,13 +618,23 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
 
           {/* Present Illness Section */}
           <div>
-            <SectionHeader title={isFollowUp ? "FOLLOW-UP NOTES" : "PRESENT ILLNESS"} />
+            <SectionHeader title="PRESENT ILLNESS" />
             <div className="p-2 space-y-2 text-sm min-h-[5rem]">
-                <p className="whitespace-pre-wrap">{isFollowUp ? data.chiefComplaint.remark : data.chiefComplaint.presentIllness || <span className="text-gray-400">N/A</span>}</p>
-                {!isFollowUp && data.chiefComplaint.westernMedicalDiagnosis && (
+                {data.chiefComplaint.presentIllness ? (
+                    <p className="whitespace-pre-wrap">{data.chiefComplaint.presentIllness}</p>
+                ) : (
+                    <p className="text-gray-400">N/A</p>
+                )}
+                {data.chiefComplaint.westernMedicalDiagnosis && (
                     <div className="pt-2">
                         <p className="font-semibold">Western Medical Diagnosis:</p>
                         <p>{data.chiefComplaint.westernMedicalDiagnosis}</p>
+                    </div>
+                )}
+                {isFollowUp && data.chiefComplaint.remark && (
+                    <div className="pt-2 border-t">
+                        <p className="font-semibold">Follow-up Notes / Changes:</p>
+                        <p className="whitespace-pre-wrap">{data.chiefComplaint.remark}</p>
                     </div>
                 )}
             </div>
@@ -605,8 +747,8 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
                     </div>
                     <div className="mt-8 text-sm space-y-8">
                         <div className="flex items-end space-x-4">
-                        <span className="font-bold whitespace-nowrap">Patient’s signature : ×</span>
-                        <div className="flex-grow border-b border-black"></div>
+                        <span className="font-bold whitespace-nowrap">Patient's signature :</span>
+                        <div className="flex-grow border-b border-black min-h-[40px]"></div>
                         <span className="font-bold whitespace-nowrap">Date :</span>
                         <div className="w-40 border-b border-black"></div>
                         </div>
@@ -636,6 +778,22 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
           Edit
         </button>
         <button 
+          onClick={() => {
+            const element = document.getElementById('print-area');
+            if (element) {
+              const text = element.innerText || element.textContent || '';
+              navigator.clipboard.writeText(text).then(() => {
+                alert('차트 텍스트가 클립보드에 복사되었습니다.');
+              }).catch(err => {
+                console.error('복사 실패:', err);
+                alert('복사에 실패했습니다.');
+              });
+            }
+          }}
+          className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+          Copy Chart Text
+        </button>
+        <button 
           onClick={handleGenerateSoapNote}
           disabled={isGeneratingSoap}
           className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200 disabled:bg-purple-400 disabled:cursor-not-allowed">
@@ -645,7 +803,12 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
           onClick={handleDownloadPdf}
           disabled={isDownloading}
           className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-green-400 disabled:cursor-not-allowed">
-          {isDownloading ? 'Downloading...' : 'Download PDF'}
+          {isDownloading ? 'Downloading...' : 'Download PDF (Image)'}
+        </button>
+        <button 
+          onClick={handlePrintPdf}
+          className="px-6 py-2 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200">
+          Print PDF (Text Copyable)
         </button>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import type { PatientData } from '../types';
 import type { User } from './database';
 
-// 신규환자 샘플 데이터
+// 신규환자 샘플 데이터 (Jane Doe) - 빈 값으로 설정
 export const getNewPatientSample = (clinicInfo?: any): PatientData => ({
   chartType: 'new',
   clinicName: clinicInfo?.clinicName || 'East-West Wellness Center',
@@ -9,109 +9,110 @@ export const getNewPatientSample = (clinicInfo?: any): PatientData => ({
   fileNo: 'CH-12345',
   name: 'Jane Doe',
   date: new Date().toISOString().split('T')[0],
-  address: '123 Wellness Ave, Suite 100, Healthville, ST 98765',
-  phone: '(123) 456-7890',
-  occupation: 'Software Engineer',
-  dob: '1990-05-15',
-  age: '34',
+  address: '',
+  phone: '',
+  occupation: '',
+  dob: '',
+  age: '',
   sex: 'F',
-  heightFt: '5',
-  heightIn: '6',
-  weight: '140',
-  temp: '98.6',
-  bpSystolic: '120',
-  bpDiastolic: '80',
-  heartRate: '72',
-  heartRhythm: 'Normal',
-  lungRate: '17',
-  lungSound: 'Clear',
+  heightFt: '',
+  heightIn: '',
+  weight: '',
+  temp: '',
+  bpSystolic: '',
+  bpDiastolic: '',
+  heartRate: '',
+  heartRhythm: '',
+  lungRate: '',
+  lungSound: '',
   chiefComplaint: {
-    selectedComplaints: ['Back Pain', 'Headache'],
+    selectedComplaints: [],
     otherComplaint: '',
-    location: 'Lower, Right, Lower back, radiating to right leg',
-    locationDetails: ['Lower', 'Right'],
-    onsetValue: '3',
-    onsetUnit: 'weeks',
-    provocation: ['Prolonged Sitting / Standing'],
-    provocationOther: 'Driving for more than 30 minutes',
-    palliation: ['Stretching / Light Exercise', 'Warm Packs / Shower'],
+    location: '',
+    locationDetails: [],
+    onsetValue: '',
+    onsetUnit: '',
+    provocation: [],
+    provocationOther: '',
+    palliation: [],
     palliationOther: '',
-    quality: ['Dull', 'Aching'],
+    quality: [],
     qualityOther: '',
-    regionRadiation: 'Radiates down the posterior right thigh',
-    severityScore: '6',
-    severityDescription: 'Moderate',
-    frequency: 'Intermittent',
-    timing: 'Worse in the morning and after sitting.',
-    possibleCause: ['Poor Posture'],
+    regionRadiation: '',
+    severityScore: '',
+    severityDescription: '',
+    frequency: '',
+    timing: '',
+    possibleCause: [],
     possibleCauseOther: '',
-    remark: 'Patient has a desk job and reports stress.',
-    presentIllness: 'The patient is a 34-year-old female who presents with complaints of back pain and headache. The back pain began approximately 3 weeks ago, primarily located in the lower right back and radiating down the posterior right thigh. She describes the pain as dull and aching, rating it 6/10 in severity. The pain is intermittent, worsening in the morning and after sitting, and is aggravated by prolonged sitting, standing, and driving for more than 30 minutes. She reports some relief with stretching, light exercise, and warm packs or showers. She attributes her symptoms to poor posture, noting her desk job and reported stress.',
+    remark: '',
+    presentIllness: '',
     westernMedicalDiagnosis: '',
   },
   medicalHistory: {
-    pastMedicalHistory: ['GI Disease'],
-    pastMedicalHistoryOther: 'History of GERD, managed with diet.',
-    medication: ['NSAIDs'],
-    medicationOther: 'Ibuprofen as needed for pain.',
-    familyHistory: ['Hypertension', 'Diabetes'],
+    pastMedicalHistory: [],
+    pastMedicalHistoryOther: '',
+    medication: [],
+    medicationOther: '',
+    familyHistory: [],
     familyHistoryOther: '',
-    allergy: ['Penicillin'],
+    allergy: [],
     allergyOther: '',
   },
   reviewOfSystems: {
-    coldHot: { sensation: 'cold', parts: ['feet', 'hands'], other: '' },
-    sleep: { hours: '6-7', quality: [], issues: ['hard to fall asleep'], other: '' },
-    sweat: { present: 'yes', time: 'night', parts: ['head'], other: '' },
-    eye: { symptoms: ['dry', 'fatigued'], other: '' },
-    mouthTongue: { symptoms: 'dry', taste: 'bland', other: '' },
-    throatNose: { symptoms: ['block', 'mucus'], mucusColor: ['clear'], other: '' },
-    edema: { present: 'yes', parts: ['leg'], other: 'Ankles in the evening' },
-    drink: { thirsty: 'thirsty', preference: 'normal', amount: 'sip', other: '' },
-    digestion: { symptoms: ['bloat', 'sometimes bad'], other: '' },
-    appetiteEnergy: { appetite: 'ok', energy: '6', other: '' },
-    stool: { frequencyValue: '1', frequencyUnit: 'day', form: 'normal', color: 'brown', symptoms: [], other: '' },
-    urine: { frequencyDay: '5-6', frequencyNight: '1', amount: 'normal', color: 'pale yellow', symptoms: [], other: '' },
-    menstruation: { status: 'regular', menopauseAge: '', lmp: '2024-07-10', cycleLength: '28', duration: '5', amount: 'normal', color: 'fresh red', clots: 'no', pain: 'yes', painDetails: 'Mild cramping on day 1', pms: ['bloating', 'irritability'], other: '' },
-    discharge: { present: 'yes', symptoms: ['white', 'sticky'], other: '' }
+    coldHot: { sensation: '', parts: [], other: '' },
+    sleep: { hours: '', quality: [], issues: [], other: '' },
+    sweat: { present: '', time: '', parts: [], other: '' },
+    eye: { symptoms: [], other: '' },
+    mouthTongue: { symptoms: '', taste: '', other: '' },
+    throatNose: { symptoms: [], mucusColor: [], other: '' },
+    edema: { present: '', parts: [], other: '' },
+    drink: { thirsty: '', preference: '', amount: '', other: '' },
+    digestion: { symptoms: [], other: '' },
+    appetiteEnergy: { appetite: '', energy: '', other: '' },
+    stool: { frequencyValue: '', frequencyUnit: '', form: '', color: '', symptoms: [], other: '' },
+    urine: { frequencyDay: '', frequencyNight: '', amount: '', color: '', symptoms: [], other: '' },
+    menstruation: { status: '', menopauseAge: '', lmp: '', cycleLength: '', duration: '', amount: '', color: '', clots: '', pain: '', painDetails: '', pms: [], other: '' },
+    discharge: { present: '', symptoms: [], other: '' }
   },
   tongue: {
     body: { 
-      color: 'Pink', colorModifiers: ['Red Tip'], 
-      shape: 'Normal', shapeModifiers: ['Tooth-marked'], 
-      locations: ['Heart (Tip)'], 
-      locationComments: 'Heart (Tip): cracked' 
+      color: '', colorModifiers: [], 
+      shape: '', shapeModifiers: [], 
+      locations: [], 
+      locationComments: '' 
     },
-    coating: { color: 'White', quality: ['Thin', 'Slippery'], notes: 'Covers Stomach/Spleen area' },
+    coating: { color: '', quality: [], notes: '' },
   },
   pulse: {
-    overall: ['Wiry', 'Rapid', 'Thready'],
-    notes: 'Left: Cun - Floating, Rapid; Guan - Wiry; Chi - Deep, Weak\nRight: Cun - Floating; Guan - Slippery; Chi - Weak',
+    overall: [],
+    notes: '',
   },
+  rangeOfMotion: {},
   diagnosisAndTreatment: {
-    eightPrinciples: { exteriorInterior: 'Interior', heatCold: 'Cold', excessDeficient: 'Deficient', yangYin: 'Yin' },
-    etiology: 'Spleen Qi deficiency leading to damp accumulation, combined with Liver Qi stagnation from stress, obstructing the channels in the lower back and head.',
-    tcmDiagnosis: 'Spleen Qi Deficiency with Dampness, Liver Qi Stagnation',
-    treatmentPrinciple: 'Tonify Spleen Qi, resolve dampness, soothe the Liver, and unblock the channels.',
-    acupunctureMethod: ['TCM Body'],
+    eightPrinciples: { exteriorInterior: '', heatCold: '', excessDeficient: '', yangYin: '' },
+    etiology: '',
+    tcmDiagnosis: '',
+    treatmentPrinciple: '',
+    acupunctureMethod: [],
     acupunctureMethodOther: '',
-    acupuncturePoints: 'ST36, SP6, LI4, LV3, GB20, UB23, UB40, Ashi points',
-    herbalTreatment: 'Du Huo Ji Sheng Tang',
-    selectedTreatment: 'Moxa',
+    acupuncturePoints: '',
+    herbalTreatment: '',
+    selectedTreatment: ['None'],
     otherTreatmentText: '',
-    icd: 'M54.5 (Low back pain), R51 (Headache)',
+    icd: '',
     cpt: '99202, 97810, 97811, 97026',
-    therapistName: clinicInfo?.therapistName || 'John Smith, L.Ac.',
-    therapistLicNo: clinicInfo?.therapistLicenseNo || '12345',
+    therapistName: clinicInfo?.therapistName || '',
+    therapistLicNo: clinicInfo?.therapistLicenseNo || '',
   },
   respondToCare: {
-    status: 'Improved',
-    improvedDays: '3',
-    notes: 'Patient reports mild improvement after last session.',
+    status: 'Same',
+    improvedDays: '',
+    notes: '',
   }
 });
 
-// 재방문 환자 샘플 데이터
+// 재방문 환자 샘플 데이터 (John Smith) - 일반적인 기본값으로 설정
 export const getFollowUpPatientSample = (clinicInfo?: any): PatientData => ({
   chartType: 'follow-up',
   clinicName: clinicInfo?.clinicName || 'East-West Wellness Center',
@@ -198,6 +199,7 @@ export const getFollowUpPatientSample = (clinicInfo?: any): PatientData => ({
     overall: ['Normal', 'Slightly Wiry'],
     notes: 'Overall improvement noted. Less wiry compared to initial visit.',
   },
+  rangeOfMotion: {},
   diagnosisAndTreatment: {
     eightPrinciples: { exteriorInterior: 'Interior', heatCold: 'Normal', excessDeficient: 'Excess', yangYin: 'Yang' },
     etiology: 'Continued improvement in Liver Qi stagnation. Some residual tension remains from work stress.',
@@ -207,7 +209,7 @@ export const getFollowUpPatientSample = (clinicInfo?: any): PatientData => ({
     acupunctureMethodOther: '',
     acupuncturePoints: 'GB20, GB21, LI4, LV3, ST36, Ashi points',
     herbalTreatment: 'Xiao Yao San',
-    selectedTreatment: 'Tui-Na',
+    selectedTreatment: ['Tui-Na'],
     otherTreatmentText: '',
     icd: 'M54.2 (Cervicalgia), M25.5 (Pain in joint)',
     cpt: '99212, 97813, 97814',
@@ -231,14 +233,28 @@ export const initializeSampleData = async (userId: string, clinicInfo?: any) => 
     const hasNewSample = existingCharts.some(chart => chart.fileNo === 'CH-12345');
     const hasFollowUpSample = existingCharts.some(chart => chart.fileNo === 'CH-67890');
     
-    // 신규환자 샘플 추가
+    // 기존 불필요한 샘플 데이터 제거 (Michael Chen, Sarah Johnson 등)
+    const unwantedSamples = existingCharts.filter(chart => {
+      const patientData = JSON.parse(chart.chartData);
+      return patientData.name === 'Michael Chen' || 
+             patientData.name === 'Sarah Johnson' ||
+             (patientData.fileNo !== 'CH-12345' && patientData.fileNo !== 'CH-67890' && 
+              patientData.name && patientData.name.includes('Sample'));
+    });
+    
+    for (const chart of unwantedSamples) {
+      await database.deletePatientChart(userId, chart.id);
+      console.log('불필요한 샘플 데이터 제거:', chart.fileNo);
+    }
+    
+    // 신규환자 샘플 추가 (Jane Doe)
     if (!hasNewSample) {
       const newPatientSample = getNewPatientSample(clinicInfo);
       await database.savePatientChart(userId, newPatientSample);
       console.log('신규환자 샘플 데이터가 추가되었습니다.');
     }
     
-    // 재방문 환자 샘플 추가
+    // 재방문 환자 샘플 추가 (John Smith)
     if (!hasFollowUpSample) {
       const followUpSample = getFollowUpPatientSample(clinicInfo);
       await database.savePatientChart(userId, followUpSample);
@@ -257,6 +273,9 @@ export const initializeTestUser = async () => {
   const { database } = await import('./database');
   
   try {
+    // 데이터베이스 초기화 보장
+    await database.initialize();
+    
     // 테스트 사용자 정보
     const testUserData = {
       username: 'sjoekim',
@@ -272,22 +291,35 @@ export const initializeTestUser = async () => {
     
     if (!existingUser) {
       // 테스트 사용자 생성
+      console.log('🔧 테스트 사용자 계정 생성 중...');
       const result = await database.registerUser(testUserData);
-      console.log('테스트 사용자 계정이 생성되었습니다:', result.user.username);
+      console.log('✅ 테스트 사용자 계정이 생성되었습니다:', result.user.username);
       
       // 관리자 승인 처리
       await database.approveUser(result.user.id, 'admin');
-      console.log('테스트 사용자 계정이 승인되었습니다.');
+      console.log('✅ 테스트 사용자 계정이 승인되었습니다.');
       
       return { userCreated: true, userApproved: true };
     } else {
-      console.log('테스트 사용자 계정이 이미 존재합니다.');
+      console.log('ℹ️ 테스트 사용자 계정이 이미 존재합니다.');
       
-      // 기존 사용자는 승인 상태를 변경하지 않음 (관리자가 수동으로 승인해야 함)
+      // 테스트 사용자의 비밀번호를 항상 업데이트 (비밀번호가 변경되었을 수 있으므로)
+      console.log('🔧 테스트 사용자 비밀번호 업데이트 중...');
+      await database.updateUserPassword('sjoekim', testUserData.password);
+      
+      // 기존 사용자가 승인되지 않은 경우 자동 승인 (테스트 계정이므로)
+      if (!existingUser.isApproved) {
+        console.log('🔧 테스트 사용자 계정 승인 처리 중...');
+        await database.approveUser(existingUser.id, 'admin');
+        console.log('✅ 테스트 사용자 계정이 승인되었습니다.');
+        return { userCreated: false, userApproved: true };
+      }
+      
+      console.log('✅ 테스트 사용자 계정이 준비되었습니다.');
       return { userCreated: false, userApproved: existingUser.isApproved };
     }
   } catch (error) {
-    console.error('테스트 사용자 초기화 실패:', error);
+    console.error('❌ 테스트 사용자 초기화 실패:', error);
     return { userCreated: false, userApproved: false };
   }
 };
