@@ -7,9 +7,13 @@
 2. 다음 내용을 추가하세요:
 
 ```env
-OPENAI_API_KEY=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
-VITE_OPENAI_API_KEY=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
+OPENAI_API_KEY=your_openai_api_key_here
+VITE_OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+**API 키 발급 방법:**
+- https://platform.openai.com/api-keys 에서 API 키를 발급받으세요.
+- 발급받은 키를 위의 `your_openai_api_key_here` 부분에 입력하세요.
 
 3. 저장 후 앱을 재시작하세요.
 
