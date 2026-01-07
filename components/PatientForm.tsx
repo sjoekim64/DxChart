@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PatientData, ChiefComplaintData, MedicalHistoryData, ReviewOfSystemsData, TongueData, DiagnosisAndTreatmentData, AcupunctureMethod } from '../types.ts';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from 'openai';
 import { database } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import type { PatientChart } from '../lib/database';
@@ -54,8 +54,8 @@ interface CheckboxGroupProps {
     gridCols?: string;
 }
 
-const CheckboxGroup: React.FC<CheckboxGroupProps> = ({ options, selected, onChange, gridCols = 'grid-cols-2 md:grid-cols-3' }) => (
-    <div className={`grid ${gridCols} gap-x-6 gap-y-2`}>
+const CheckboxGroup: React.FC<CheckboxGroupProps> = ({ options, selected, onChange, gridCols = 'grid-cols-3' }) => (
+    <div className={`grid ${gridCols} gap-x-4 gap-y-1`}>
         {options.map(({value, label}) => (
             <div key={value} className="flex items-center">
                 <input
@@ -107,7 +107,7 @@ interface PatientFormProps {
 }
 
 const commonComplaints = [
-    {value: 'Neck Pain', label: 'Neck Pain (목 통증)'}, {value: 'Shoulder Pain', label: 'Shoulder Pain (어깨 통증)'}, {value: 'Back Pain', label: 'Back Pain (등 통증)'}, {value: 'Knee Pain', label: 'Knee Pain (무릎 통증)'}, {value: 'Headache', label: 'Headache (두통)'}, {value: 'Migraine', label: 'Migraine (편두통)'},
+    {value: 'Neck Pain', label: 'Neck Pain (목 통증)'}, {value: 'Shoulder Pain', label: 'Shoulder Pain (어깨 통증)'}, {value: 'Back Pain', label: 'Back Pain (등 통증)'}, {value: 'Sciatica', label: 'Sciatica (좌골신경통)'}, {value: 'Knee Pain', label: 'Knee Pain (무릎 통증)'}, {value: 'Headache', label: 'Headache (두통)'}, {value: 'Migraine', label: 'Migraine (편두통)'},
     {value: 'Insomnia', label: 'Insomnia (불면증)'}, {value: 'Digestive Issues', label: 'Digestive Issues (소화 장애)'}, {value: 'Fatigue / Lethargy', label: 'Fatigue / Lethargy (피로/무기력)'}, {value: 'Menstrual Issues', label: 'Menstrual Issues (생리 문제)'},
     {value: 'Numbness / Tingling', label: 'Numbness / Tingling (저림/마비)'}
 ];
@@ -205,8 +205,12 @@ const otherRemainingPulseQualities = [
 
 
 const otherTreatmentOptions: { value: string; label: string; }[] = [
-    {value: 'None', label: 'None'}, {value: 'Tui-Na', label: 'Tui-Na'}, {value: 'Acupressure', label: 'Acupressure'}, {value: 'Moxa', label: 'Moxa'},
-    {value: 'Cupping', label: 'Cupping'}, {value: 'Electro Acupuncture', label: 'Electro Acupuncture'}, {value: 'Heat Pack', label: 'Heat Pack'},
+    {value: 'Tui-Na', label: 'Tui-Na'}, 
+    {value: 'Acupressure', label: 'Acupressure'}, 
+    {value: 'Moxa', label: 'Moxa'},
+    {value: 'Cupping', label: 'Cupping'}, 
+    {value: 'Electro Acupuncture', label: 'Electro Acupuncture'}, 
+    {value: 'Heat Pack', label: 'Heat Pack'},
     {value: 'Auricular Acupuncture', label: 'Auricular Acupuncture / Ear Seeds'},
     {value: 'Other', label: 'Other'}
 ];
@@ -240,6 +244,9 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
   const [needsHpiRegeneration, setNeedsHpiRegeneration] = useState(false);
   const [previousCharts, setPreviousCharts] = useState<PatientData[]>([]);
   const [showPreviousCharts, setShowPreviousCharts] = useState(false);
+  const [improvingFields, setImprovingFields] = useState<Set<string>>(new Set());
+  const [fileNoDuplicateWarning, setFileNoDuplicateWarning] = useState<string>('');
+  const fileNoCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const isFollowUp = useMemo(() => formData.chartType === 'follow-up', [formData.chartType]);
   const isEditing = useMemo(() => mode === 'edit', [mode]);
@@ -288,6 +295,15 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
     loadPreviousCharts();
   }, [isFollowUp, user, formData.fileNo, formData.date]);
 
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (fileNoCheckTimeoutRef.current) {
+        clearTimeout(fileNoCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Track changes to selected complaints to detect when HPI needs regeneration
   useEffect(() => {
     const initialComplaints = initialData.chiefComplaint.selectedComplaints;
@@ -304,8 +320,61 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
     }
   }, [formData.chiefComplaint.selectedComplaints, formData.chiefComplaint.otherComplaint, initialData.chiefComplaint.selectedComplaints, initialData.chiefComplaint.otherComplaint, formData.chiefComplaint.presentIllness]);
 
+  // 파일 번호 중복 체크 함수
+  const checkFileNoDuplicate = async (fileNo: string) => {
+    if (!user || !fileNo || fileNo.trim() === '') {
+      setFileNoDuplicateWarning('');
+      return;
+    }
+
+    // 현재 편집 중인 환자의 원래 파일 번호는 제외
+    const originalFileNo = initialData.fileNo;
+    
+    try {
+      const charts = await database.getPatientChartsByFileNo(user.id, fileNo.trim());
+      
+      // 현재 편집 중인 환자의 차트는 제외 (같은 환자이므로)
+      const otherCharts = charts.filter(chart => {
+        const chartData = JSON.parse(chart.chartData) as PatientData;
+        // 원래 파일 번호와 다르거나, 같은 파일 번호지만 다른 날짜인 경우
+        return chartData.fileNo !== originalFileNo || chart.date !== formData.date;
+      });
+      
+      if (otherCharts.length > 0) {
+        const existingPatient = JSON.parse(otherCharts[0].chartData) as PatientData;
+        setFileNoDuplicateWarning(`⚠️ Warning: File No. "${fileNo}" already exists for patient "${existingPatient.name || 'Unknown'}" (Date: ${otherCharts[0].date}). Please use a different file number.`);
+      } else {
+        setFileNoDuplicateWarning('');
+      }
+    } catch (error) {
+      console.error('파일 번호 중복 체크 실패:', error);
+      setFileNoDuplicateWarning('');
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    
+    // 숫자 필드에서 "N/A"나 잘못된 값 처리
+    if (type === 'number' && (value === 'N/A' || value === 'n/a' || value === 'na' || value === 'NA')) {
+      // "N/A"를 빈 문자열로 변환
+      setFormData(prev => ({ ...prev, [name]: '' }));
+      return;
+    }
+    
+    // 파일 번호 변경 시 중복 체크 (디바운싱)
+    if (name === 'fileNo') {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      // 이전 타이머 취소
+      if (fileNoCheckTimeoutRef.current) {
+        clearTimeout(fileNoCheckTimeoutRef.current);
+      }
+      // 새 타이머 설정 (500ms 후 중복 체크)
+      fileNoCheckTimeoutRef.current = setTimeout(() => {
+        checkFileNoDuplicate(value);
+      }, 500);
+      return;
+    }
     
     // DOB 입력 시 자동으로 age 계산
     if (name === 'dob' && value) {
@@ -508,6 +577,160 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
       }));
   };
 
+  // 근육이름 한글/중국어를 영어로 변환하는 함수 (Trigger Point 전용)
+  const translateMuscleNames = async (text: string): Promise<string> => {
+    if (!text || text.trim().length === 0) {
+      return text;
+    }
+
+    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      alert('OPENAI_API_KEY가 설정되지 않았습니다.');
+      return text;
+    }
+
+    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+    const prompt = `You are a medical professional translating muscle names from Korean or Chinese to English for trigger point acupuncture.
+
+**IMPORTANT INSTRUCTIONS:**
+1. The text below contains muscle names in Korean (한글) or Chinese (中文) for trigger point acupuncture
+2. Translate ONLY the muscle names to their standard English anatomical names
+3. Keep the structure and format of the text (commas, colons, line breaks, etc.)
+4. Do NOT translate other parts like "Trigger Point:", "Ashi points", etc.
+5. Use standard anatomical muscle names in English (e.g., "Upper trapezius", "Levator scapulae", "Rhomboids")
+6. If the text is already in English, return it as is
+7. Preserve any numbers, punctuation, and formatting
+
+Examples:
+- "상부승모근, 승모근상부" → "Upper trapezius"
+- "견갑거근, 어깨올림근" → "Levator scapulae"
+- "대능형근" → "Rhomboids"
+- "Trigger Point: 상부승모근, 승모근상부" → "Trigger Point: Upper trapezius, Levator scapulae"
+
+Original text:
+${text}
+
+Translated text (muscle names in English only):`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const translatedText = response.choices[0]?.message?.content?.trim() || '';
+      // 응답에서 프리픽스 제거
+      const cleanedText = translatedText.replace(/^(Translated text:|English version:|Translation:)\s*/i, '').trim();
+      return cleanedText || text; // 실패 시 원본 반환
+    } catch (error) {
+      console.error('근육이름 변환 실패:', error);
+      alert('근육이름 변환 중 오류가 발생했습니다. 다시 시도해주세요.');
+      return text;
+    }
+  };
+
+  // 언어 감지, 번역 및 영어 문법 검증 및 의료 용어 개선 함수
+  const improveEnglishText = async (text: string, fieldType: string): Promise<string> => {
+    if (!text || text.trim().length === 0) {
+      return text;
+    }
+
+    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      alert('OPENAI_API_KEY가 설정되지 않았습니다.');
+      return text;
+    }
+
+    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+    const contextMap: { [key: string]: string } = {
+      'remark': 'patient chart remark or follow-up notes',
+      'respondToCareNotes': 'patient response to care notes',
+      'tongueCoatingNotes': 'tongue coating observation notes',
+      'pulseNotes': 'pulse diagnosis notes',
+      'locationComments': 'tongue body location comments',
+      'romNotes': 'range of motion notes',
+      'presentIllness': 'history of present illness'
+    };
+
+    const context = contextMap[fieldType] || 'medical chart notes';
+
+    const prompt = `You are a medical professional reviewing patient chart notes. 
+
+**IMPORTANT INSTRUCTIONS:**
+1. First, detect the language of the text below
+2. If the text is NOT in English, translate it to English first
+3. Then correct the grammar, spelling, and improve the medical terminology
+4. Make it professional, clear, and appropriate for a medical chart
+
+Context: ${context}
+
+Original text:
+${text}
+
+Please provide ONLY the final corrected and improved English version. Do not add explanations, comments, or indicate the original language. Keep the meaning and medical information intact, but ensure:
+1. The text is in English (translate if necessary)
+2. Grammar and spelling are correct
+3. Medical terminology is accurate
+4. Professional medical language is used
+5. Clarity and conciseness are improved
+
+Corrected English text:`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const improvedText = response.choices[0]?.message?.content?.trim() || '';
+      // 응답에서 "Corrected English text:" 같은 프리픽스 제거
+      const cleanedText = improvedText.replace(/^(Corrected English text:|Corrected text:|Translation:|English version:)\s*/i, '').trim();
+      return cleanedText || text; // 실패 시 원본 반환
+    } catch (error) {
+      console.error('텍스트 개선 실패:', error);
+      alert('텍스트 개선 중 오류가 발생했습니다. 다시 시도해주세요.');
+      return text;
+    }
+  };
+
+  // 텍스트 필드 개선 핸들러
+  const handleImproveText = async (fieldPath: string[], currentValue: string, fieldType: string) => {
+    if (!currentValue || currentValue.trim().length === 0) {
+      alert('개선할 텍스트를 입력해주세요.');
+      return;
+    }
+
+    const fieldKey = fieldPath.join('.');
+    setImprovingFields(prev => new Set(prev).add(fieldKey));
+
+    try {
+      const improvedText = await improveEnglishText(currentValue, fieldType);
+      
+      // formData 업데이트
+      setFormData(prev => {
+        const newData = { ...prev };
+        let target: any = newData;
+        
+        for (let i = 0; i < fieldPath.length - 1; i++) {
+          target = target[fieldPath[i]];
+        }
+        
+        target[fieldPath[fieldPath.length - 1]] = improvedText;
+        return newData;
+      });
+    } catch (error) {
+      console.error('텍스트 개선 실패:', error);
+    } finally {
+      setImprovingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fieldKey);
+        return newSet;
+      });
+    }
+  };
+
   const handlePulseOverallChange = (value: string, checked: boolean) => {
     const pulsePairsMap: { [key: string]: string } = {
         'Floating': 'Sinking', 'Sinking': 'Floating',
@@ -541,6 +764,22 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
         const currentRate = parseInt(prev.lungRate, 10) || 0;
         const newRate = increment ? currentRate + 1 : Math.max(0, currentRate - 1);
         return { ...prev, lungRate: newRate.toString() };
+    });
+  };
+
+  const handleTempChange = (increment: boolean) => {
+    setFormData(prev => {
+        const currentTemp = parseFloat(prev.temp) || 0;
+        const newTemp = increment ? currentTemp + 0.1 : Math.max(0, currentTemp - 0.1);
+        return { ...prev, temp: newTemp.toFixed(1) };
+    });
+  };
+
+  const handleHeartRateChange = (increment: boolean) => {
+    setFormData(prev => {
+        const currentRate = parseInt(prev.heartRate, 10) || 0;
+        const newRate = increment ? currentRate + 1 : Math.max(0, currentRate - 1);
+        return { ...prev, heartRate: newRate.toString() };
     });
   };
 
@@ -642,17 +881,196 @@ ${allComplaints || 'No specific complaints listed'}
     
     // Follow-up 차트인 경우 Respond to Previous Care 정보 추가
     if (isFollowUp && formData.respondToCare) {
-        prompt += `\n**Response to Previous Treatment:**\n`;
+        prompt += `\n**Response to Previous Treatment (MNR Assessment):**\n`;
         if (formData.respondToCare.status) {
-            prompt += `- Status: ${formData.respondToCare.status}\n`;
+            prompt += `- Overall Status: ${formData.respondToCare.status}\n`;
         }
-        if (formData.respondToCare.status === 'Improved' && formData.respondToCare.improvedDays) {
-            prompt += `- Improvement Duration: Good for ${formData.respondToCare.improvedDays} days\n`;
+        if (formData.respondToCare.status === 'Improved') {
+            if (formData.respondToCare.improvedPercent) {
+                prompt += `- Improvement: ${formData.respondToCare.improvedPercent}%\n`;
+            }
+            if (formData.respondToCare.treatmentAfterDays) {
+                prompt += `- Treatment After: ${formData.respondToCare.treatmentAfterDays} days\n`;
+            }
+            if (formData.respondToCare.improvedDays) {
+            prompt += `- Improvement Duration: ${formData.respondToCare.improvedDays} days\n`;
+            }
+        }
+        if (formData.respondToCare.painLevelBefore || formData.respondToCare.painLevelAfter || formData.respondToCare.painLevelCurrent) {
+            prompt += `- Pain Levels: `;
+            const painLevels: string[] = [];
+            if (formData.respondToCare.painLevelBefore) painLevels.push(`Before: ${formData.respondToCare.painLevelBefore}/10`);
+            if (formData.respondToCare.painLevelAfter) painLevels.push(`After: ${formData.respondToCare.painLevelAfter}/10`);
+            if (formData.respondToCare.painLevelCurrent) painLevels.push(`Current: ${formData.respondToCare.painLevelCurrent}/10`);
+            prompt += painLevels.join(', ') + '\n';
+        }
+        const functionalActivities: string[] = [];
+        if (formData.respondToCare.canDriveWithoutPain) {
+            functionalActivities.push(`Drive: ${formData.respondToCare.canDriveWithoutPain}`);
+        }
+        if (formData.respondToCare.canSitWithoutPain) {
+            let sit = `Sit: ${formData.respondToCare.canSitWithoutPain}`;
+            if (formData.respondToCare.canSitDuration) sit += ` (${formData.respondToCare.canSitDuration})`;
+            functionalActivities.push(sit);
+        }
+        if (formData.respondToCare.canStandWithoutPain) {
+            let stand = `Stand: ${formData.respondToCare.canStandWithoutPain}`;
+            if (formData.respondToCare.canStandDuration) stand += ` (${formData.respondToCare.canStandDuration})`;
+            functionalActivities.push(stand);
+        }
+        if (formData.respondToCare.canWalkWithoutPain) {
+            let walk = `Walk: ${formData.respondToCare.canWalkWithoutPain}`;
+            if (formData.respondToCare.canWalkDistance) walk += ` (${formData.respondToCare.canWalkDistance})`;
+            functionalActivities.push(walk);
+        }
+        if (formData.respondToCare.canSitMaxTime) {
+            prompt += `- Max Sitting Time Without Pain: ${formData.respondToCare.canSitMaxTime}\n`;
+        }
+        if (formData.respondToCare.canWalkMaxTime) {
+            prompt += `- Max Walking Time Without Pain: ${formData.respondToCare.canWalkMaxTime}\n`;
+        }
+        if (formData.respondToCare.canDriveMaxTime) {
+            prompt += `- Max Driving Time Before Pain: ${formData.respondToCare.canDriveMaxTime}\n`;
+        }
+        if (functionalActivities.length > 0) {
+            prompt += `- Functional Activities: ${functionalActivities.join('; ')}\n`;
+        }
+        if (formData.respondToCare.houseworkDiscomfort) {
+            prompt += `- Housework Discomfort (0-10): ${formData.respondToCare.houseworkDiscomfort}\n`;
+        }
+        if (formData.respondToCare.liftingDiscomfort) {
+            prompt += `- Lifting Discomfort (0-10): ${formData.respondToCare.liftingDiscomfort}\n`;
+        }
+        if (formData.respondToCare.sleepQualityDiscomfort) {
+            prompt += `- Sleep Quality Discomfort (0-10): ${formData.respondToCare.sleepQualityDiscomfort}\n`;
+        }
+        if (formData.respondToCare.commuteDiscomfort) {
+            prompt += `- Work/Job Activities Discomfort (0-10): ${formData.respondToCare.commuteDiscomfort}\n`;
+        }
+        if (formData.respondToCare.avoidedActivitiesCount) {
+            prompt += `- Avoided Activities Count: ${formData.respondToCare.avoidedActivitiesCount}\n`;
+        }
+        if (formData.respondToCare.painMedicationFrequency) {
+            prompt += `- Pain Medication Frequency (per week): ${formData.respondToCare.painMedicationFrequency}\n`;
+        }
+        if (formData.respondToCare.medicationChange) {
+            prompt += `- Medication Usage Change: ${formData.respondToCare.medicationChange}\n`;
+        }
+        if (formData.respondToCare.recoveryPercent) {
+            prompt += `- Recovery Percentage: ${formData.respondToCare.recoveryPercent}%\n`;
+        }
+        if (formData.respondToCare.sleepQualityImprovement) {
+            prompt += `- Sleep Quality: ${formData.respondToCare.sleepQualityImprovement}\n`;
+        }
+        if (formData.respondToCare.dailyActivitiesImprovement) {
+            prompt += `- Daily Activities: ${formData.respondToCare.dailyActivitiesImprovement}\n`;
         }
         if (formData.respondToCare.notes) {
-            prompt += `- Notes: ${formData.respondToCare.notes}\n`;
+            prompt += `- Additional Notes: ${formData.respondToCare.notes}\n`;
         }
     }
+    
+    // Range of Motion (ROM) 정보 추가
+    if (formData.rangeOfMotion && Object.keys(formData.rangeOfMotion).length > 0) {
+        prompt += `\n**Range of Motion (ROM) Assessment - IMPORTANT CLINICAL DATA:**\n`;
+        const normalRanges: { [key: string]: { [motion: string]: string } } = {
+            'Neck': { flexion: '50°', extension: '60°', lateralFlexion: '45°', rotation: '80°' },
+            'Shoulder L': { flexion: '180°', extension: '50°', abduction: '180°', adduction: '50°', internalRotation: '70°', externalRotation: '90°' },
+            'Shoulder R': { flexion: '180°', extension: '50°', abduction: '180°', adduction: '50°', internalRotation: '70°', externalRotation: '90°' },
+            'Elbow L': { flexion: '150°', extension: '0°', pronation: '80°', supination: '80°' },
+            'Elbow R': { flexion: '150°', extension: '0°', pronation: '80°', supination: '80°' },
+            'Wrist L': { flexion: '80°', extension: '70°', radialDeviation: '20°', ulnarDeviation: '30°' },
+            'Wrist R': { flexion: '80°', extension: '70°', radialDeviation: '20°', ulnarDeviation: '30°' },
+            'Hip L': { flexion: '120°', extension: '30°', abduction: '50°', adduction: '30°', internalRotation: '40°', externalRotation: '50°' },
+            'Hip R': { flexion: '120°', extension: '30°', abduction: '50°', adduction: '30°', internalRotation: '40°', externalRotation: '50°' },
+            'Knee L': { flexion: '135°', extension: '0°' },
+            'Knee R': { flexion: '135°', extension: '0°' },
+            'Ankle L': { dorsiflexion: '20°', plantarflexion: '50°', inversion: '30°', eversion: '20°' },
+            'Ankle R': { dorsiflexion: '20°', plantarflexion: '50°', inversion: '30°', eversion: '20°' },
+            'Spine': { flexion: '60°', extension: '25°', lateralFlexion: '25°', rotation: '30°' },
+        };
+        
+        Object.keys(formData.rangeOfMotion).forEach(joint => {
+            const jointData = formData.rangeOfMotion[joint] || {};
+            const romValues: string[] = [];
+            const normalRange = normalRanges[joint] || {};
+            
+            if (jointData.flexion) {
+                const normal = normalRange.flexion || 'N/A';
+                romValues.push(`Flexion: ${jointData.flexion}° (normal: ${normal})`);
+            }
+            if (jointData.extension) {
+                const normal = normalRange.extension || 'N/A';
+                romValues.push(`Extension: ${jointData.extension}° (normal: ${normal})`);
+            }
+            if (jointData.abduction) {
+                const normal = normalRange.abduction || 'N/A';
+                romValues.push(`Abduction: ${jointData.abduction}° (normal: ${normal})`);
+            }
+            if (jointData.adduction) {
+                const normal = normalRange.adduction || 'N/A';
+                romValues.push(`Adduction: ${jointData.adduction}° (normal: ${normal})`);
+            }
+            if (jointData.internalRotation) {
+                const normal = normalRange.internalRotation || 'N/A';
+                romValues.push(`Internal Rotation: ${jointData.internalRotation}° (normal: ${normal})`);
+            }
+            if (jointData.externalRotation) {
+                const normal = normalRange.externalRotation || 'N/A';
+                romValues.push(`External Rotation: ${jointData.externalRotation}° (normal: ${normal})`);
+            }
+            if (jointData.lateralFlexion) {
+                const normal = normalRange.lateralFlexion || 'N/A';
+                romValues.push(`Lateral Flexion: ${jointData.lateralFlexion}° (normal: ${normal})`);
+            }
+            if (jointData.rotation) {
+                const normal = normalRange.rotation || 'N/A';
+                romValues.push(`Rotation: ${jointData.rotation}° (normal: ${normal})`);
+            }
+            if (jointData.pronation) {
+                const normal = normalRange.pronation || 'N/A';
+                romValues.push(`Pronation: ${jointData.pronation}° (normal: ${normal})`);
+            }
+            if (jointData.supination) {
+                const normal = normalRange.supination || 'N/A';
+                romValues.push(`Supination: ${jointData.supination}° (normal: ${normal})`);
+            }
+            if (jointData.radialDeviation) {
+                const normal = normalRange.radialDeviation || 'N/A';
+                romValues.push(`Radial Deviation: ${jointData.radialDeviation}° (normal: ${normal})`);
+            }
+            if (jointData.ulnarDeviation) {
+                const normal = normalRange.ulnarDeviation || 'N/A';
+                romValues.push(`Ulnar Deviation: ${jointData.ulnarDeviation}° (normal: ${normal})`);
+            }
+            if (jointData.dorsiflexion) {
+                const normal = normalRange.dorsiflexion || 'N/A';
+                romValues.push(`Dorsiflexion: ${jointData.dorsiflexion}° (normal: ${normal})`);
+            }
+            if (jointData.plantarflexion) {
+                const normal = normalRange.plantarflexion || 'N/A';
+                romValues.push(`Plantarflexion: ${jointData.plantarflexion}° (normal: ${normal})`);
+            }
+            if (jointData.inversion) {
+                const normal = normalRange.inversion || 'N/A';
+                romValues.push(`Inversion: ${jointData.inversion}° (normal: ${normal})`);
+            }
+            if (jointData.eversion) {
+                const normal = normalRange.eversion || 'N/A';
+                romValues.push(`Eversion: ${jointData.eversion}° (normal: ${normal})`);
+            }
+            
+            if (romValues.length > 0) {
+                prompt += `- ${joint}: ${romValues.join(', ')}\n`;
+            }
+            if (jointData.notes) {
+                prompt += `  Notes: ${jointData.notes}\n`;
+            }
+        });
+    }
+    
+    const hasROM = formData.rangeOfMotion && Object.keys(formData.rangeOfMotion).length > 0;
+    let requirementNumber = 7;
     
     prompt += `
 **ABSOLUTE REQUIREMENTS:**
@@ -662,8 +1080,19 @@ ${allComplaints || 'No specific complaints listed'}
 4. Write a coherent paragraph in a professional, clinical tone
 5. Start with an opening sentence like: "${openingSentence}"
 6. Weave the details into a narrative, not just a list
-7. Do not use markdown or bullet points in your final output
-${isFollowUp && formData.respondToCare ? '8. **IMPORTANT**: This is a follow-up visit. You MUST incorporate the "Response to Previous Treatment" information into the narrative. Describe how the patient responded to previous treatment and how their condition has changed since the last visit.' : ''}
+7. Do not use markdown or bullet points in your final output`;
+    
+    if (hasROM) {
+        requirementNumber++;
+        prompt += `\n${requirementNumber}. **CRITICAL**: The "Range of Motion (ROM) Assessment" section above contains measured joint ranges of motion. You MUST include these ROM findings in your narrative. Describe the specific joint(s) measured, the range of motion values, and compare them to normal ranges when provided. Note any limitations, restrictions, or deviations from normal. This is essential clinical information that demonstrates the objective assessment of joint function and must be integrated naturally into the HPI narrative.`;
+    }
+    
+    if (isFollowUp && formData.respondToCare) {
+        requirementNumber++;
+        prompt += `\n${requirementNumber}. **CRITICAL**: This is a follow-up visit. The narrative MUST be centered on the "Response to Previous Treatment" information. Focus on: How much the patient has improved (percentage and duration), Functional activity improvements (maximum time for sitting, walking, driving without pain), Daily activities discomfort levels, Medication usage changes, and Overall recovery. The narrative should emphasize the improvement achieved since the last visit based on the response to previous care data. Describe the progress and changes, not just current symptoms.`;
+    }
+    
+    prompt += `
 
 **Example of what NOT to do:** If "Current Symptoms" only lists "Neck Pain, Shoulder Pain" but you mention "back pain" or "lower back", that is WRONG.
 
@@ -671,20 +1100,20 @@ Generate the HPI paragraph below:
 `;
 
     try {
-        const apiKey = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+        const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) {
-          throw new Error('GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+          throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
         }
         
-        const ai = new GoogleGenAI({ apiKey });
+        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
         
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
         });
         
 
-        const generatedText = response.text;
+        const generatedText = response.choices[0]?.message?.content || '';
         
         // Validate that the generated text only includes current symptoms
         const currentSymptoms = [...chiefComplaint.selectedComplaints, chiefComplaint.otherComplaint].filter(Boolean);
@@ -731,6 +1160,23 @@ Generate the HPI paragraph below:
   const handleGenerateDiagnosis = async () => {
     setIsDiagnosing(true);
 
+    // 이전 차트의 진단 정보 가져오기 (follow-up인 경우)
+    let previousDiagnosis = null;
+    if (isFollowUp && previousCharts.length > 0) {
+      const latestPreviousChart = previousCharts[previousCharts.length - 1];
+      previousDiagnosis = {
+        etiology: latestPreviousChart.diagnosisAndTreatment.etiology,
+        tcmDiagnosis: latestPreviousChart.diagnosisAndTreatment.tcmDiagnosis,
+        treatmentPrinciple: latestPreviousChart.diagnosisAndTreatment.treatmentPrinciple,
+        chiefComplaint: latestPreviousChart.chiefComplaint.selectedComplaints
+      };
+    }
+
+    // Chief complaint 비교
+    const currentComplaints = formData.chiefComplaint.selectedComplaints;
+    const previousComplaints = previousDiagnosis?.chiefComplaint || [];
+    const complaintsChanged = JSON.stringify(currentComplaints.sort()) !== JSON.stringify(previousComplaints.sort());
+
     const patientSummary = JSON.stringify({
         demographics: { age: formData.age, sex: formData.sex },
         ...(isFollowUp && { respondToCare: formData.respondToCare }),
@@ -746,7 +1192,44 @@ Generate the HPI paragraph below:
         .map(method => method === 'Other' && acupunctureMethodOther ? acupunctureMethodOther : method)
         .filter(m => m !== 'Other');
     
+    // 선택된 치료법 가져오기
+    const rawTreatments = formData.diagnosisAndTreatment.selectedTreatment;
+    const selectedTreatments = Array.isArray(rawTreatments) 
+      ? rawTreatments 
+      : (rawTreatments ? [rawTreatments] : []);
+    const selectedTreatmentsForPrompt = selectedTreatments.filter(t => t !== 'None').join(', ') || 'None';
+    
+    // 이전 진단 정보를 프롬프트에 포함
+    const previousDiagnosisContext = previousDiagnosis ? `
+**PREVIOUS VISIT DIAGNOSIS (for reference - maintain consistency if chief complaint unchanged):**
+- Etiology: ${previousDiagnosis.etiology || 'N/A'}
+- TCM Diagnosis: ${previousDiagnosis.tcmDiagnosis || 'N/A'}
+- Treatment Principle: ${previousDiagnosis.treatmentPrinciple || 'N/A'}
+- Previous Chief Complaint: ${previousComplaints.join(', ') || 'N/A'}
+
+**IMPORTANT**: ${complaintsChanged 
+  ? 'The chief complaint has CHANGED from the previous visit. You may adjust the diagnosis accordingly, but maintain the overall diagnostic framework if the underlying pattern is similar.' 
+  : 'The chief complaint is UNCHANGED from the previous visit. You MUST maintain the SAME diagnostic framework (etiology, TCM diagnosis, treatment principle) with only minor refinements based on current symptoms. Do NOT create a completely different diagnosis.'}
+` : '';
+
     const prompt = `Based on the following comprehensive patient data, act as an expert TCM practitioner to generate a diagnosis and treatment plan. Your analysis must be grounded in the principles of 'Chinese Acupuncture and Moxibustion' (中国针灸学). Provide the output in a structured JSON format. ${isFollowUp ? `This is a follow-up visit. Pay close attention to the "respondToCare" data to adjust the diagnosis and treatment plan accordingly.` : ''}
+${previousDiagnosisContext}
+
+**CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:**
+
+1. **SELECTED ACUPUNCTURE METHODS**: The practitioner has selected ONLY these acupuncture methods: ${methodsForPrompt.length > 0 ? methodsForPrompt.join(', ') : 'None'}. 
+   - You MUST provide acupuncture points ONLY for these selected methods.
+   - DO NOT suggest points for methods that were NOT selected.
+   - If 'Trigger Point' is selected, provide trigger points or Ashi points for relevant muscles.
+   - If 'TCM Body' is selected, provide standard channel points.
+   - If 'Saam' is selected, provide Saam points with tonification/sedation.
+   - If 'Master Tung' is selected, provide Tung's points.
+   - If 'Five Element' is selected, provide constitutional points.
+
+2. **SELECTED OTHER TREATMENTS**: The practitioner has selected these treatments: ${selectedTreatmentsForPrompt}.
+   - You MUST respect this selection in your recommendation.
+   - If a treatment is already selected, confirm it in your recommendation.
+   - Do NOT suggest different treatments unless the selected ones are clearly inappropriate.
 
 Patient Data:
 ${patientSummary}
@@ -759,14 +1242,14 @@ JSON Output Structure:
     "excessDeficient": "Excess or Deficient",
     "yangYin": "Based on the three principles above (Exterior/Interior, Heat/Cold, Excess/Deficient), determine if the overall pattern is predominantly Yang or Yin. For example, a pattern of Interior, Cold, and Deficient is Yin."
   },
-  "etiology": "Describe the root cause and contributing factors. Be very concise; the entire text must not exceed 3 lines.${isFollowUp ? ' Consider changes since the last visit.' : ''}",
-  "tcmDiagnosis": "Provide the primary TCM Syndrome/Differentiation diagnosis (e.g., Liver Qi Stagnation, Spleen Qi Deficiency with Dampness), grounded in 'Chinese Acupuncture and Moxibustion' principles.",
-  "treatmentPrinciple": "State the clear treatment principle (e.g., Soothe the Liver, tonify Spleen Qi, resolve dampness).",
-  "acupuncturePoints": "Suggest primary acupuncture points for EACH of the selected methods: '${methodsForPrompt.join(', ')}'. Your response for this field MUST be a single string. List ONLY the point names/groups. Do NOT include any descriptions or explanations. Structure the output with each method as a heading on a new line, using '\\n' as a separator. For example: 'Saam: HT8, LR1 (sedate); LU8, SP2 (tonify)\\nTCM Body: ST36, SP6, LI4, LV3'. For 'Saam', provide the tonification/sedation combination. For 'Master Tung', list Tung's points. For 'Five Element', list constitutional points. For 'Trigger Point', list relevant muscles or Ashi points. For 'TCM Body', list standard channel points.",
+  "etiology": "${previousDiagnosis && !complaintsChanged ? `CRITICAL: The chief complaint is unchanged. Maintain the SAME etiology framework as the previous visit: "${previousDiagnosis.etiology}". Only make minor refinements if symptoms have slightly changed. Keep the core cause and contributing factors consistent.` : 'Describe the root cause and contributing factors. Be very concise; the entire text must not exceed 3 lines.' + (isFollowUp ? ' Consider changes since the last visit, but maintain consistency if the chief complaint is unchanged.' : '')}",
+  "tcmDiagnosis": "${previousDiagnosis && !complaintsChanged ? `CRITICAL: The chief complaint is unchanged. You MUST use the SAME TCM diagnosis as the previous visit: "${previousDiagnosis.tcmDiagnosis}". Do NOT change it unless there is a fundamental shift in the pattern. Only add minor qualifiers if symptoms have evolved slightly.` : 'Provide the primary TCM Syndrome/Differentiation diagnosis (e.g., Liver Qi Stagnation, Spleen Qi Deficiency with Dampness), grounded in "Chinese Acupuncture and Moxibustion" principles.'}",
+  "treatmentPrinciple": "${previousDiagnosis && !complaintsChanged ? `CRITICAL: The chief complaint is unchanged. You MUST maintain the SAME treatment principle as the previous visit: "${previousDiagnosis.treatmentPrinciple}". Keep the core principle consistent, only adjust minor details if symptoms have changed slightly.` : 'State the clear treatment principle (e.g., Soothe the Liver, tonify Spleen Qi, resolve dampness).'}",
+  "acupuncturePoints": "CRITICAL: Provide acupuncture points ONLY for the selected methods: ${methodsForPrompt.length > 0 ? methodsForPrompt.join(', ') : 'None'}. Your response MUST be a single string. List ONLY the point names/groups; DO NOT include any explanations. Structure the output so that EACH SELECTED METHOD IS ON ITS OWN LINE, using '\\n' as a separator, with the format 'Method Name: point1, point2, point3...'. For example: 'Trigger Point: Upper trapezius, Levator scapulae, Rhomboids, Infraspinatus'; 'TCM Body: ST36, SP6, LI4, LV3, GB34, BL23'; 'Saam: HT8, LR1 (sedate); LU8, SP2 (tonify)' (Saam MUST include at least FOUR points — two for sedation and two for tonification); 'Five Element: Source, Tonification, and Sedation points appropriate for the main pattern (at least 4–6 points total)'. DO NOT include methods that were NOT selected.",
   "herbalTreatment": "Recommend a classic herbal formula based on 'Donguibogam' (동의보감) and 'Bangyakhappyeon' (방약합편). IMPORTANT: Consider the patient's current medications and family history to avoid drug interactions. Start with '[RECOMMENDED]' prefix, then provide the formula name (e.g., '[RECOMMENDED] Du Huo Ji Sheng Tang'). After the formula name, list all the individual herbs (약재) that are included in this formula, separated by commas. Format: '[RECOMMENDED] Formula Name: Herb1, Herb2, Herb3, ...'. If there are any potential interactions with current medications, add a warning note.",
   "otherTreatment": {
-    "recommendation": "Suggest only the single most relevant treatment from this list: None, Tui-Na, Acupressure, Moxa, Cupping, Electro Acupuncture, Heat Pack, Auricular Acupuncture, Other. If 'Other' or 'Auricular Acupuncture', specify what it is (e.g., 'Auricular Acupuncture: Shen Men, Liver').",
-    "explanation": "Briefly explain why you recommend it."
+    "recommendation": "IMPORTANT: The practitioner has already selected: ${selectedTreatmentsForPrompt}. You MUST recommend one of these selected treatments. If multiple are selected, recommend the most appropriate one. If 'None' is selected, recommend 'None'. Do NOT suggest treatments that were NOT selected.",
+    "explanation": "Briefly explain why you recommend this specific treatment from the selected options."
   }
 }
 
@@ -774,23 +1257,85 @@ Instructions:
 - Analyze the interconnected symptoms from all sections (ROS, tongue, chief complaint).
 - Provide a concise and clinically relevant diagnosis and plan.
 - For Eight Principles, choose only one from each pair and logically determine Yin/Yang.
+- **MOST IMPORTANT**: Respect the selected acupuncture methods and treatments. Do NOT suggest points or treatments for methods/treatments that were NOT selected.
 - Ensure the output is a valid JSON object only.
 `;
+    const maxRetries = 3;
+    const baseDelay = 2000; // 2초
+    
     try {
-        const apiKey = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+        const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) {
-          throw new Error('GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+          throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
         }
-        const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
+        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+        
+        // 재시도 로직
+        let response;
+        let lastError;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                response = await openai.chat.completions.create({
+                    model: 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: prompt }],
+                    response_format: { type: "json_object" }
+                });
+                break; // 성공하면 루프 종료
+            } catch (error: any) {
+                lastError = error;
+                const isRetryableError = error?.error?.code === 503 || 
+                                       error?.error?.code === 429 ||
+                                       error?.error?.status === 'UNAVAILABLE' ||
+                                       error?.error?.status === 'RESOURCE_EXHAUSTED' ||
+                                       error?.message?.includes('overloaded') ||
+                                       error?.message?.includes('quota') ||
+                                       error?.message?.includes('503') ||
+                                       error?.message?.includes('429');
+                
+                // 할당량 초과(429)는 재시도하지 않음 (일일 한도 초과)
+                if (error?.error?.code === 429 && error?.error?.message?.includes('quota')) {
+                    throw new Error('API 일일 할당량(20회)을 초과했습니다. 내일 다시 시도하거나 유료 플랜으로 업그레이드해주세요.');
+                }
+                
+                if (isRetryableError && attempt < maxRetries - 1) {
+                    const delay = baseDelay * Math.pow(2, attempt); // 지수 백오프: 2초, 4초, 8초
+                    
+                    // Retry-After 시간 파싱 (여러 방법 시도)
+                    let waitTime = delay;
+                    const retryInfo = error?.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                    
+                    if (retryInfo?.retryDelay) {
+                        // retryDelay가 문자열인 경우 (예: "24.23s" 또는 "24.23")
+                        const retryDelayStr = String(retryInfo.retryDelay);
+                        const match = retryDelayStr.match(/(\d+\.?\d*)/);
+                        if (match) {
+                            waitTime = parseFloat(match[1]) * 1000; // 초를 밀리초로 변환
+                        }
+                    } else if (error?.error?.message) {
+                        // 메시지에서 "Please retry in X.XXs" 패턴 찾기
+                        const messageMatch = error.error.message.match(/retry in ([\d.]+)s/i);
+                        if (messageMatch) {
+                            waitTime = parseFloat(messageMatch[1]) * 1000;
+                        }
+                    }
+                    
+                    // 최소 대기 시간 보장 (너무 짧으면 문제 발생 가능)
+                    waitTime = Math.max(waitTime, 1000);
+                    
+                    console.log(`⚠️ API 오류 발생. ${(waitTime / 1000).toFixed(1)}초 후 재시도... (${attempt + 1}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                } else {
+                    throw error; // 재시도 불가능하거나 최대 재시도 횟수 초과
+                }
             }
-        });
+        }
+        
+        if (!response) {
+            throw lastError || new Error('API 호출 실패');
+        }
 
-        const generatedJsonString = response.text.trim();
+        const generatedJsonString = response.choices[0]?.message?.content?.trim() || '';
         const generatedData = JSON.parse(generatedJsonString);
         
         // 기존 선택된 치료법 유지 (배열이 아닌 경우 처리)
@@ -858,25 +1403,85 @@ Instructions:
             }
         });
 
+        // Chief complaint가 바뀌지 않았고 이전 진단이 있으면, 이전 진단을 우선 유지
+        // AI가 생성한 진단이 이전 진단과 크게 다르면 이전 진단 유지
+        let finalEtiology = generatedData.etiology || '';
+        let finalTcmDiagnosis = generatedData.tcmDiagnosis || '';
+        let finalTreatmentPrinciple = generatedData.treatmentPrinciple || '';
+
+        if (previousDiagnosis && !complaintsChanged) {
+          // Chief complaint가 바뀌지 않았으면 이전 진단 유지 (AI가 생성한 것이 비슷한 경우만 업데이트)
+          // 이전 진단과 완전히 다른 경우는 이전 진단 유지
+          const previousEtiology = previousDiagnosis.etiology || '';
+          const previousTcmDiagnosis = previousDiagnosis.tcmDiagnosis || '';
+          const previousTreatmentPrinciple = previousDiagnosis.treatmentPrinciple || '';
+
+          // AI 생성 진단이 이전 진단과 유사한지 확인 (간단한 키워드 비교)
+          const etiologySimilar = !finalEtiology || 
+            previousEtiology.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && finalEtiology.toLowerCase().includes(word)
+            ) ||
+            finalEtiology.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && previousEtiology.toLowerCase().includes(word)
+            );
+
+          const diagnosisSimilar = !finalTcmDiagnosis || 
+            previousTcmDiagnosis.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && finalTcmDiagnosis.toLowerCase().includes(word)
+            ) ||
+            finalTcmDiagnosis.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && previousTcmDiagnosis.toLowerCase().includes(word)
+            );
+
+          const principleSimilar = !finalTreatmentPrinciple || 
+            previousTreatmentPrinciple.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && finalTreatmentPrinciple.toLowerCase().includes(word)
+            ) ||
+            finalTreatmentPrinciple.toLowerCase().split(/\s+/).some(word => 
+              word.length > 3 && previousTreatmentPrinciple.toLowerCase().includes(word)
+            );
+
+          // 유사하지 않으면 이전 진단 유지
+          if (!etiologySimilar) {
+            finalEtiology = previousEtiology;
+          }
+          if (!diagnosisSimilar) {
+            finalTcmDiagnosis = previousTcmDiagnosis;
+          }
+          if (!principleSimilar) {
+            finalTreatmentPrinciple = previousTreatmentPrinciple;
+          }
+        }
+
         setFormData(prev => ({
             ...prev,
             diagnosisAndTreatment: {
                 ...prev.diagnosisAndTreatment,
                 eightPrinciples: generatedData.eightPrinciples || prev.diagnosisAndTreatment.eightPrinciples,
-                etiology: generatedData.etiology || '',
-                tcmDiagnosis: generatedData.tcmDiagnosis || '',
-                treatmentPrinciple: generatedData.treatmentPrinciple || '',
-                acupuncturePoints: generatedData.acupuncturePoints || '',
-                herbalTreatment: generatedData.herbalTreatment || '',
+                etiology: finalEtiology || prev.diagnosisAndTreatment.etiology || '',
+                tcmDiagnosis: finalTcmDiagnosis || prev.diagnosisAndTreatment.tcmDiagnosis || '',
+                treatmentPrinciple: finalTreatmentPrinciple || prev.diagnosisAndTreatment.treatmentPrinciple || '',
+                acupuncturePoints: generatedData.acupuncturePoints || prev.diagnosisAndTreatment.acupuncturePoints || '',
+                herbalTreatment: generatedData.herbalTreatment || prev.diagnosisAndTreatment.herbalTreatment || '',
                 selectedTreatment: newSelectedTreatments,
                 otherTreatmentText: otherTreatmentText,
                 cpt: Array.from(newCptSet).join(', ')
             }
         }));
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error generating diagnosis:", error);
-        alert("Failed to generate AI diagnosis. Please check the console for errors.");
+        
+        let errorMessage = "AI 진단 생성에 실패했습니다.";
+        if (error?.status === 429) {
+            errorMessage = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.";
+        } else if (error?.status === 503) {
+            errorMessage = "서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.";
+        } else if (error?.message) {
+            errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
     } finally {
         setIsDiagnosing(false);
     }
@@ -1016,8 +1621,12 @@ Instructions:
     }));
   };
 
-  const handleRespondToCareChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleRespondToCareChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
+      setFormData(prev => ({ ...prev, respondToCare: { ...prev.respondToCare!, [name]: value } }));
+  };
+  
+  const handleRespondToCareRadioChange = (name: string, value: string) => {
       setFormData(prev => ({ ...prev, respondToCare: { ...prev.respondToCare!, [name]: value } }));
   };
 
@@ -1035,14 +1644,28 @@ Instructions:
         : 'New Patient Registration';
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-slate-800 text-center">{formTitle}</h1>
+    <div className="h-screen flex flex-col max-w-4xl mx-auto">
+      {/* Fixed Header Section */}
+      <div className="flex-shrink-0 bg-white border-b shadow-sm pb-4 mb-4 sticky top-0 z-10">
+        <h1 className="text-3xl font-bold text-slate-800 text-center pt-4">{formTitle}</h1>
+        <div className="flex justify-center mt-4">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+          >
+            Back to List
+          </button>
+        </div>
+      </div>
       
+      {/* Scrollable Content Area */}
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-8 px-4">
       {/* Clinic Information */}
       {!isFollowUp && (
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Clinic Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-3 gap-4">
             <InputField label="Clinic Name" id="clinicName" name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="Enter your clinic's name" />
             <div>
               <label htmlFor="clinicLogo" className="block text-sm font-medium text-gray-700 mb-1">Clinic Logo</label>
@@ -1074,14 +1697,34 @@ Instructions:
       {/* Patient Information */}
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Patient Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <InputField label="File No." id="fileNo" value={formData.fileNo} onChange={handleChange} required readOnly={isEditing} />
-          <InputField label="Name" id="name" value={formData.name} onChange={handleChange} placeholder="환자 이름을 입력하세요" required />
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <InputField label="File No." id="fileNo" value={formData.fileNo} onChange={handleChange} required />
+            {fileNoDuplicateWarning && (
+              <p className="mt-1 text-sm text-red-600 font-medium">{fileNoDuplicateWarning}</p>
+            )}
+          </div>
+          <InputField label="Name (Last, First)" id="name" value={formData.name} onChange={handleChange} placeholder="e.g., DOE, John" required />
           <InputField label="Date" id="date" value={formData.date} onChange={handleChange} type="date" required />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Patient Type</label>
+            <select
+              id="patientType"
+              name="patientType"
+              value={formData.patientType || 'cash'}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="cash">Cash</option>
+              <option value="insurance">Insurance</option>
+              <option value="pi">PI</option>
+              <option value="worker-comp">Worker Comp</option>
+            </select>
+          </div>
           
           {!isFollowUp && (
             <>
-                <InputField label="Address" id="address" name="address" value={formData.address} onChange={handleChange} placeholder="주소를 입력하세요" className="md:col-span-2" />
+                <InputField label="Address" id="address" name="address" value={formData.address} onChange={handleChange} placeholder="주소를 입력하세요" className="col-span-2" />
                 <InputField label="Phone" id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="전화번호를 입력하세요" />
             </>
           )}
@@ -1110,27 +1753,49 @@ Instructions:
       {/* Vitals */}
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Vital Signs</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-4">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
                 <div className="flex items-center space-x-2">
-                    <InputField type="number" id="heightFt" name="heightFt" value={formData.heightFt} onChange={handleChange} unit="ft" label="" placeholder="Feet" />
-                    <InputField type="number" id="heightIn" name="heightIn" value={formData.heightIn} onChange={handleChange} unit="in" label="" placeholder="Inches" />
+                    <div className="flex-1 relative">
+                        <input type="number" id="heightFt" name="heightFt" value={formData.heightFt} onChange={handleChange} placeholder="Feet" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                        <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">ft</span>
+                    </div>
+                    <div className="flex-1 relative">
+                        <input type="number" id="heightIn" name="heightIn" value={formData.heightIn} onChange={handleChange} placeholder="Inches" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                        <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">in</span>
+                    </div>
                 </div>
             </div>
             <InputField label="Weight" id="weight" value={formData.weight} onChange={handleChange} type="number" unit="lbs" />
-            <InputField label="Temperature" id="temp" value={formData.temp} onChange={handleChange} type="number" unit="°F" />
-            <div className="md:col-span-2 lg:col-span-1">
+            <div>
+              <label htmlFor="temp" className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
+              <div className="flex items-center relative">
+                  <button type="button" onClick={() => handleTempChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100 focus:outline-none">-</button>
+                  <input type="number" id="temp" name="temp" value={formData.temp} onChange={handleChange} step="0.1" className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">°F</span>
+                  <button type="button" onClick={() => handleTempChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100 focus:outline-none">+</button>
+              </div>
+            </div>
+            <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Blood Pressure</label>
                 <div className="flex items-center space-x-2">
-                    <input type="number" name="bpSystolic" value={formData.bpSystolic} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Systolic"/>
+                    <input type="number" name="bpSystolic" value={formData.bpSystolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Systolic"/>
                     <span className="text-gray-500">/</span>
-                    <input type="number" name="bpDiastolic" value={formData.bpDiastolic} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Diastolic"/>
+                    <input type="number" name="bpDiastolic" value={formData.bpDiastolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Diastolic"/>
                      <span className="text-sm text-gray-500 whitespace-nowrap">mmHg</span>
                 </div>
             </div>
-             <InputField label="Heart Rate" id="heartRate" value={formData.heartRate} onChange={handleChange} type="number" unit="BPM" />
-             <div>
+            <div>
+              <label htmlFor="heartRate" className="block text-sm font-medium text-gray-700 mb-1">Heart Rate</label>
+              <div className="flex items-center relative">
+                  <button type="button" onClick={() => handleHeartRateChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100 focus:outline-none">-</button>
+                  <input type="number" id="heartRate" name="heartRate" value={formData.heartRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">BPM</span>
+                  <button type="button" onClick={() => handleHeartRateChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100 focus:outline-none">+</button>
+              </div>
+            </div>
+            <div>
                 <label htmlFor="heartRhythm" className="block text-sm font-medium text-gray-700 mb-1">Heart Rhythm</label>
                 <select id="heartRhythm" name="heartRhythm" value={formData.heartRhythm} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                   <option value="Normal">Normal</option>
@@ -1140,10 +1805,10 @@ Instructions:
               </div>
             <div>
               <label htmlFor="lungRate" className="block text-sm font-medium text-gray-700 mb-1">Lung Rate</label>
-              <div className="flex items-center">
+              <div className="flex items-center relative">
                   <button type="button" onClick={() => handleLungRateChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100">-</button>
-                  <input type="number" id="lungRate" name="lungRate" value={formData.lungRate} onChange={handleChange} className="w-full px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                  <span className="absolute right-10 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">BPM</span>
+                  <input type="number" id="lungRate" name="lungRate" value={formData.lungRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">BPM</span>
                   <button type="button" onClick={() => handleLungRateChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100">+</button>
               </div>
             </div>
@@ -1161,17 +1826,17 @@ Instructions:
         </div>
       </div>
       
-      {/* Previous Charts Reference - 재방문 차트일 때만 */}
+      {/* Previous Charts Reference - follow-up only */}
       {isFollowUp && previousCharts.length > 0 && (
         <div className="bg-blue-50 border-2 border-blue-300 p-4 rounded-lg shadow-lg">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-blue-800">이전 차트 참조</h3>
+            <h3 className="text-lg font-semibold text-blue-800">Previous Charts Reference</h3>
             <button
               type="button"
               onClick={() => setShowPreviousCharts(!showPreviousCharts)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
             >
-              {showPreviousCharts ? '숨기기' : '이전 차트 보기'}
+              {showPreviousCharts ? 'Hide' : 'Show Previous Charts'}
             </button>
           </div>
           {showPreviousCharts && (
@@ -1179,15 +1844,15 @@ Instructions:
               {previousCharts.map((chart, index) => (
                 <div key={index} className="bg-white p-4 rounded border border-blue-200">
                   <div className="font-semibold text-gray-700 mb-2">
-                    {new Date(chart.date).toLocaleDateString('ko-KR')} 방문
+                    Visit: {new Date(chart.date).toLocaleDateString('en-US')}
                   </div>
                   <div className="text-sm space-y-2">
                     <div>
-                      <strong>주증상:</strong> {[...chart.chiefComplaint.selectedComplaints, chart.chiefComplaint.otherComplaint].filter(Boolean).join(', ') || 'N/A'}
+                      <strong>Chief Complaints:</strong> {[...chart.chiefComplaint.selectedComplaints, chart.chiefComplaint.otherComplaint].filter(Boolean).join(', ') || 'N/A'}
                     </div>
                     {chart.chiefComplaint.location && (
                       <div>
-                        <strong>위치:</strong> {chart.chiefComplaint.location}
+                        <strong>Location:</strong> {chart.chiefComplaint.location}
                       </div>
                     )}
                     {chart.chiefComplaint.presentIllness && (
@@ -1201,12 +1866,12 @@ Instructions:
                     )}
                     {chart.diagnosisAndTreatment.tcmDiagnosis && (
                       <div>
-                        <strong>TCM 진단:</strong> {chart.diagnosisAndTreatment.tcmDiagnosis}
+                        <strong>TCM Diagnosis:</strong> {chart.diagnosisAndTreatment.tcmDiagnosis}
                       </div>
                     )}
                     {chart.diagnosisAndTreatment.acupuncturePoints && (
                       <div>
-                        <strong>침혈:</strong> {chart.diagnosisAndTreatment.acupuncturePoints.substring(0, 100)}
+                        <strong>Acupuncture Points:</strong> {chart.diagnosisAndTreatment.acupuncturePoints.substring(0, 100)}
                         {chart.diagnosisAndTreatment.acupuncturePoints.length > 100 && '...'}
                       </div>
                     )}
@@ -1221,44 +1886,272 @@ Instructions:
       {/* Respond to Care */}
       {isFollowUp && (
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Respond to Previous Care</h2>
-          <div className="space-y-4">
-            <RadioGroup 
-                name="status"
-                selectedValue={formData.respondToCare?.status || ''}
-                onChange={handleRespondToCareChange}
-                options={[
-                    { value: 'Resolved', label: 'Resolved' },
-                    { value: 'Improved', label: 'Improved' },
-                    { value: 'Same', label: 'Same' },
-                    { value: 'Worse', label: 'Worse' },
-                ]}
-            />
+          <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Response to Previous Care (MNR Assessment)</h2>
+          <div className="space-y-6">
+            {/* Overall Status */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">1. Overall Response Status</label>
+              <RadioGroup 
+                  name="status"
+                  selectedValue={formData.respondToCare?.status || ''}
+                  onChange={(e) => handleRespondToCareRadioChange('status', e.target.value)}
+                  options={[
+                      { value: 'Resolved', label: 'Resolved' },
+                      { value: 'Improved', label: 'Improved' },
+                      { value: 'Same', label: 'Same' },
+                      { value: 'Worse', label: 'Worse' },
+                  ]}
+              />
+            </div>
+
+            {/* Improvement Duration */}
             {formData.respondToCare?.status === 'Improved' && (
-                <div className="flex items-center space-x-2 pl-6">
-                    <label htmlFor="improvedDays" className="text-sm font-medium text-gray-700">Good for</label>
-                    <input
-                        type="number"
+              <div className="grid grid-cols-2 gap-4">
+              <div>
+                  <label htmlFor="improvedPercent" className="block text-sm font-semibold text-gray-700 mb-2">
+                    How much ?%
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                      type="number"
+                        id="improvedPercent"
+                        name="improvedPercent"
+                        value={formData.respondToCare?.improvedPercent || ''}
+                      onChange={handleRespondToCareChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="0"
+                  />
+                    <span className="text-sm text-gray-600">%</span>
+                </div>
+              </div>
+                <div>
+                  <label htmlFor="improvedDays" className="block text-sm font-semibold text-gray-700 mb-2">
+                    How many days?
+                  </label>
+                  <div className="flex items-center space-x-2">
+                  <input
+                      type="number"
                         id="improvedDays"
                         name="improvedDays"
                         value={formData.respondToCare?.improvedDays || ''}
-                        onChange={handleRespondToCareChange}
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
+                      onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="0"
+                  />
                     <span className="text-sm text-gray-600">days</span>
                 </div>
+                </div>
+                </div>
             )}
-             <div className="pl-6">
-                <label htmlFor="respondToCareNotes" className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                    id="respondToCareNotes"
-                    name="notes"
-                    value={formData.respondToCare?.notes || ''}
-                    onChange={handleRespondToCareChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="e.g., Patient reports 10% improvement in pain..."
+
+            {/* Functional Activities */}
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Functional Activities</h3>
+              
+              {/* Sitting Max Time */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum time patient can sit without pain?
+                </label>
+                <RadioGroup 
+                    name="canSitMaxTime"
+                    selectedValue={formData.respondToCare?.canSitMaxTime || ''}
+                    onChange={(e) => handleRespondToCareRadioChange('canSitMaxTime', e.target.value)}
+                    options={[
+                        { value: '5min', label: '5 minutes' },
+                        { value: '15min', label: '15 minutes' },
+                        { value: '30min', label: '30 minutes' },
+                        { value: '60min+', label: '60 minutes or more' },
+                    ]}
                 />
+              </div>
+
+              {/* Walking Max Time */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum time patient can walk without pain?
+                </label>
+                <RadioGroup 
+                    name="canWalkMaxTime"
+                    selectedValue={formData.respondToCare?.canWalkMaxTime || ''}
+                    onChange={(e) => handleRespondToCareRadioChange('canWalkMaxTime', e.target.value)}
+                    options={[
+                        { value: '5min', label: '5 minutes' },
+                        { value: '15min', label: '15 minutes' },
+                        { value: '30min', label: '30 minutes' },
+                        { value: '60min+', label: '60 minutes or more' },
+                    ]}
+                />
+              </div>
+
+              {/* Driving Max Time */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  How long before pain starts while driving?
+                </label>
+                <RadioGroup 
+                    name="canDriveMaxTime"
+                    selectedValue={formData.respondToCare?.canDriveMaxTime || ''}
+                    onChange={(e) => handleRespondToCareRadioChange('canDriveMaxTime', e.target.value)}
+                    options={[
+                        { value: '5min', label: '5 minutes' },
+                        { value: '15min', label: '15 minutes' },
+                        { value: '30min', label: '30 minutes' },
+                        { value: '60min+', label: '60 minutes or more' },
+                    ]}
+                    />
+                  </div>
+              </div>
+
+            {/* Daily Activities Discomfort */}
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Daily Activities Discomfort (0-10 scale)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="houseworkDiscomfort" className="block text-sm font-medium text-gray-700 mb-1">
+                    Housework (cleaning, cooking): Level of discomfort (0-10)
+                </label>
+                  <select
+                      id="houseworkDiscomfort"
+                      name="houseworkDiscomfort"
+                      value={formData.respondToCare?.houseworkDiscomfort || ''}
+                        onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select...</option>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num.toString()}>{num}</option>
+                    ))}
+                  </select>
+                  </div>
+                <div>
+                  <label htmlFor="liftingDiscomfort" className="block text-sm font-medium text-gray-700 mb-1">
+                    Lifting objects: Level of discomfort (0-10)
+                  </label>
+                  <select
+                      id="liftingDiscomfort"
+                      name="liftingDiscomfort"
+                      value={formData.respondToCare?.liftingDiscomfort || ''}
+                      onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select...</option>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num.toString()}>{num}</option>
+                    ))}
+                  </select>
+              </div>
+                <div>
+                  <label htmlFor="sleepQualityDiscomfort" className="block text-sm font-medium text-gray-700 mb-1">
+                    Sleep quality: Level of discomfort (0-10)
+                </label>
+                <select
+                      id="sleepQualityDiscomfort"
+                      name="sleepQualityDiscomfort"
+                      value={formData.respondToCare?.sleepQualityDiscomfort || ''}
+                    onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select...</option>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num.toString()}>{num}</option>
+                    ))}
+                </select>
+              </div>
+                <div>
+                  <label htmlFor="commuteDiscomfort" className="block text-sm font-medium text-gray-700 mb-1">
+                    Work/Job activities: Level of discomfort (0-10)
+                </label>
+                <select
+                      id="commuteDiscomfort"
+                      name="commuteDiscomfort"
+                      value={formData.respondToCare?.commuteDiscomfort || ''}
+                    onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select...</option>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num.toString()}>{num}</option>
+                    ))}
+                </select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Additional Metrics */}
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Additional Metrics</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="avoidedActivitiesCount" className="block text-sm font-medium text-gray-700 mb-1">
+                    Number of activities avoided due to pain? (e.g., golf, tennis, running)
+                  </label>
+                  <input
+                      type="number"
+                      id="avoidedActivitiesCount"
+                      name="avoidedActivitiesCount"
+                      value={formData.respondToCare?.avoidedActivitiesCount || ''}
+                      onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="painMedicationFrequency" className="block text-sm font-medium text-gray-700 mb-1">
+                    Pain medication frequency (per week)
+                  </label>
+                  <input
+                      type="number"
+                      id="painMedicationFrequency"
+                      name="painMedicationFrequency"
+                      value={formData.respondToCare?.painMedicationFrequency || ''}
+                      onChange={handleRespondToCareChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Medication usage change compared to before treatment (e.g., pain killer, ibuprofen, Tylenol)
+                  </label>
+                  <RadioGroup 
+                      name="medicationChange"
+                      selectedValue={formData.respondToCare?.medicationChange || ''}
+                      onChange={(e) => handleRespondToCareRadioChange('medicationChange', e.target.value)}
+                      options={[
+                          { value: 'Decreased', label: 'Decreased' },
+                          { value: 'Same', label: 'Same' },
+                          { value: 'Increased', label: 'Increased' },
+                      ]}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Notes */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="respondToCareNotes" className="block text-sm font-semibold text-gray-700">
+                  9. Additional Notes (Optional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleImproveText(['respondToCare', 'notes'], formData.respondToCare?.notes || '', 'respondToCareNotes')}
+                  disabled={!formData.respondToCare?.notes || improvingFields.has('respondToCare.notes')}
+                  className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {improvingFields.has('respondToCare.notes') ? 'Improving...' : '✎ Improve'}
+                </button>
+              </div>
+              <textarea
+                  id="respondToCareNotes"
+                  name="notes"
+                  value={formData.respondToCare?.notes || ''}
+                  onChange={handleRespondToCareChange}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Examples: Activities avoided due to pain (e.g., golf, tennis, running). Medication names (e.g., pain killer, ibuprofen, Tylenol). Any other relevant details about patient's response to treatment..."
+              />
             </div>
           </div>
         </div>
@@ -1271,17 +2164,47 @@ Instructions:
             <label className="block text-sm font-medium text-gray-700">Select common complaints:</label>
             <CheckboxGroup options={commonComplaints} selected={formData.chiefComplaint.selectedComplaints} onChange={(val, checked) => handleArrayChange('chiefComplaint', 'selectedComplaints', val, checked)} />
         </div>
-        <InputField label="Other Complaint" id="otherComplaint" name="otherComplaint" value={formData.chiefComplaint.otherComplaint} onChange={handleComplaintChange} placeholder="Enter other complaint if not listed" />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">Other Complaint</label>
+            <button
+              type="button"
+              onClick={() => handleImproveText(['chiefComplaint', 'otherComplaint'], formData.chiefComplaint.otherComplaint, 'otherComplaint')}
+              disabled={!formData.chiefComplaint.otherComplaint || improvingFields.has('chiefComplaint.otherComplaint')}
+              className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {improvingFields.has('chiefComplaint.otherComplaint') ? 'Improving...' : '✎ Improve'}
+            </button>
+          </div>
+          <InputField
+            label=""
+            id="otherComplaint"
+            name="otherComplaint"
+            value={formData.chiefComplaint.otherComplaint}
+            onChange={handleComplaintChange}
+            placeholder="Enter other complaint if not listed"
+          />
+        </div>
         
         <div className="mt-6 border-t pt-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <InputField label="Location" id="location" name="location" value={formData.chiefComplaint.location} onChange={handleComplaintChange} placeholder="위치를 설명하세요" />
+              <InputField label="Location" id="location" name="location" value={formData.chiefComplaint.location} onChange={handleComplaintChange} placeholder="Describe location (e.g., low back, right shoulder)" />
             </div>
-            <InputField label="Radiation" id="regionRadiation" name="regionRadiation" value={formData.chiefComplaint.regionRadiation} onChange={handleComplaintChange} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Radiation</label>
+                <button
+                  type="button"
+                  onClick={() => handleImproveText(['chiefComplaint', 'regionRadiation'], formData.chiefComplaint.regionRadiation, 'regionRadiation')}
+                  disabled={!formData.chiefComplaint.regionRadiation || improvingFields.has('chiefComplaint.regionRadiation')}
+                  className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {improvingFields.has('chiefComplaint.regionRadiation') ? 'Improving...' : '✎ Improve'}
+                </button>
+              </div>
+              <InputField label="" id="regionRadiation" name="regionRadiation" value={formData.chiefComplaint.regionRadiation} onChange={handleComplaintChange} placeholder="e.g., Pain radiates to left leg" />
+            </div>
              {!isFollowUp && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Onset</label>
@@ -1297,6 +2220,9 @@ Instructions:
                   </div>
                 </div>
              )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
              <div>
                  <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                  <div className="flex items-center space-x-2">
@@ -1311,6 +2237,37 @@ Instructions:
                          <option value="Severe">Severe (심각)</option>
                      </select>
                  </div>
+            </div>
+          </div>
+          
+          {/* Quality of Pain - 항상 표시 (PDF에서 추출한 값도 보여주기 위해) */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Quality of Pain</label>
+            <CheckboxGroup 
+              options={painQualities} 
+              selected={formData.chiefComplaint.quality || []} 
+              onChange={(val, checked) => handleArrayChange('chiefComplaint', 'quality', val, checked)} 
+              gridCols="grid-cols-4" 
+            />
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Other Quality</label>
+                <button
+                  type="button"
+                  onClick={() => handleImproveText(['chiefComplaint', 'qualityOther'], formData.chiefComplaint.qualityOther || '', 'qualityOther')}
+                  disabled={!formData.chiefComplaint.qualityOther || improvingFields.has('chiefComplaint.qualityOther')}
+                  className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {improvingFields.has('chiefComplaint.qualityOther') ? 'Improving...' : '✎ Improve'}
+                </button>
+              </div>
+            <InputField 
+                label="" 
+              id="qualityOther" 
+              name="qualityOther" 
+              value={formData.chiefComplaint.qualityOther || ''} 
+              onChange={handleComplaintChange} 
+            />
             </div>
           </div>
           
@@ -1349,6 +2306,9 @@ Instructions:
                   const isSpine = joint === 'Spine';
                   const isShoulder = joint.includes('Shoulder');
                   const isHip = joint.includes('Hip');
+                  const isElbow = joint.includes('Elbow');
+                  const isWrist = joint.includes('Wrist');
+                  const isAnkle = joint.includes('Ankle');
                   
                   return (
                     <div key={joint} className="border rounded-lg p-4 bg-gray-50">
@@ -1363,11 +2323,36 @@ Instructions:
                         </button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {!isNeck && !isSpine && (
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Normal ROM ranges */}
+                        {(() => {
+                          const normalRanges: { [key: string]: { [motion: string]: string } } = {
+                            'Neck': { flexion: '50°', extension: '60°', lateralFlexion: '45°', rotation: '80°' },
+                            'Shoulder L': { flexion: '180°', extension: '50°', abduction: '180°', adduction: '50°', internalRotation: '70°', externalRotation: '90°' },
+                            'Shoulder R': { flexion: '180°', extension: '50°', abduction: '180°', adduction: '50°', internalRotation: '70°', externalRotation: '90°' },
+                            'Elbow L': { flexion: '150°', extension: '0°', pronation: '80°', supination: '80°' },
+                            'Elbow R': { flexion: '150°', extension: '0°', pronation: '80°', supination: '80°' },
+                            'Wrist L': { flexion: '80°', extension: '70°', radialDeviation: '20°', ulnarDeviation: '30°' },
+                            'Wrist R': { flexion: '80°', extension: '70°', radialDeviation: '20°', ulnarDeviation: '30°' },
+                            'Hip L': { flexion: '120°', extension: '30°', abduction: '50°', adduction: '30°', internalRotation: '40°', externalRotation: '50°' },
+                            'Hip R': { flexion: '120°', extension: '30°', abduction: '50°', adduction: '30°', internalRotation: '40°', externalRotation: '50°' },
+                            'Knee L': { flexion: '135°', extension: '0°' },
+                            'Knee R': { flexion: '135°', extension: '0°' },
+                            'Ankle L': { dorsiflexion: '20°', plantarflexion: '50°', inversion: '30°', eversion: '20°' },
+                            'Ankle R': { dorsiflexion: '20°', plantarflexion: '50°', inversion: '30°', eversion: '20°' },
+                            'Spine': { flexion: '60°', extension: '25°', lateralFlexion: '25°', rotation: '30°' },
+                          };
+                          const normalRange = normalRanges[joint] || {};
+                          
+                          return (
+                            <>
+                              {/* Neck: Flexion, Extension, Lateral Flexion, Rotation */}
+                              {isNeck && (
                           <>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Flexion (굴곡)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion (forward) {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1380,7 +2365,9 @@ Instructions:
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Extension (신전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension (backward) {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1392,13 +2379,142 @@ Instructions:
                                 <span className="text-xs text-gray-500">°</span>
                               </div>
                             </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Lateral Flexion {normalRange.lateralFlexion && <span className="text-gray-400">({normalRange.lateralFlexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.lateralFlexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'lateralFlexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Rotation {normalRange.rotation && <span className="text-gray-400">({normalRange.rotation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.rotation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'rotation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
                           </>
                         )}
                         
-                        {(isShoulder || isHip) && (
+                              {/* Spine: Flexion, Extension, Lateral Flexion, Rotation */}
+                              {isSpine && (
                           <>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Abduction (외전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion (forward) {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension (backward) {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Lateral Flexion {normalRange.lateralFlexion && <span className="text-gray-400">({normalRange.lateralFlexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.lateralFlexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'lateralFlexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Rotation {normalRange.rotation && <span className="text-gray-400">({normalRange.rotation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.rotation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'rotation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              
+                              {/* Shoulder: Flexion, Extension, Abduction, Adduction, Internal/External Rotation */}
+                              {isShoulder && (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Abduction {normalRange.abduction && <span className="text-gray-400">({normalRange.abduction})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1411,7 +2527,9 @@ Instructions:
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Adduction (내전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Adduction {normalRange.adduction && <span className="text-gray-400">({normalRange.adduction})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1424,7 +2542,9 @@ Instructions:
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Internal Rotation (내회전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Internal Rotation {normalRange.internalRotation && <span className="text-gray-400">({normalRange.internalRotation})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1437,7 +2557,9 @@ Instructions:
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">External Rotation (외회전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      External Rotation {normalRange.externalRotation && <span className="text-gray-400">({normalRange.externalRotation})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
@@ -1452,15 +2574,18 @@ Instructions:
                           </>
                         )}
                         
-                        {(isNeck || isSpine) && (
+                              {/* Hip: Flexion, Extension, Abduction, Adduction, Internal/External Rotation */}
+                              {isHip && (
                           <>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Lateral Flexion (측면 굴곡)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
-                                  value={jointData.lateralFlexion || ''}
-                                  onChange={(e) => handleROMChange(joint, 'lateralFlexion', e.target.value)}
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
                                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                   placeholder="0"
                                 />
@@ -1468,12 +2593,74 @@ Instructions:
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Rotation (회전)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
                               <div className="flex items-center space-x-1">
                                 <input
                                   type="number"
-                                  value={jointData.rotation || ''}
-                                  onChange={(e) => handleROMChange(joint, 'rotation', e.target.value)}
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Abduction {normalRange.abduction && <span className="text-gray-400">({normalRange.abduction})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.abduction || ''}
+                                        onChange={(e) => handleROMChange(joint, 'abduction', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Adduction {normalRange.adduction && <span className="text-gray-400">({normalRange.adduction})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.adduction || ''}
+                                        onChange={(e) => handleROMChange(joint, 'adduction', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Internal Rotation {normalRange.internalRotation && <span className="text-gray-400">({normalRange.internalRotation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.internalRotation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'internalRotation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      External Rotation {normalRange.externalRotation && <span className="text-gray-400">({normalRange.externalRotation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.externalRotation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'externalRotation', e.target.value)}
                                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                   placeholder="0"
                                 />
@@ -1482,9 +2669,278 @@ Instructions:
                             </div>
                           </>
                         )}
+                              
+                              {/* Elbow: Flexion, Extension, Pronation, Supination */}
+                              {isElbow && (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Pronation {normalRange.pronation && <span className="text-gray-400">({normalRange.pronation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.pronation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'pronation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Supination {normalRange.supination && <span className="text-gray-400">({normalRange.supination})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.supination || ''}
+                                        onChange={(e) => handleROMChange(joint, 'supination', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              
+                              {/* Wrist: Flexion, Extension, Radial Deviation, Ulnar Deviation */}
+                              {isWrist && (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Radial Deviation {normalRange.radialDeviation && <span className="text-gray-400">({normalRange.radialDeviation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.radialDeviation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'radialDeviation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Ulnar Deviation {normalRange.ulnarDeviation && <span className="text-gray-400">({normalRange.ulnarDeviation})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.ulnarDeviation || ''}
+                                        onChange={(e) => handleROMChange(joint, 'ulnarDeviation', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              
+                              {/* Knee: Flexion, Extension */}
+                              {(joint.includes('Knee') || joint.includes('knee')) && (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Flexion {normalRange.flexion && <span className="text-gray-400">({normalRange.flexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.flexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Extension {normalRange.extension && <span className="text-gray-400">({normalRange.extension})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.extension || ''}
+                                        onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              
+                              {/* Ankle: Dorsiflexion, Plantarflexion, Inversion, Eversion */}
+                              {isAnkle && (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Dorsiflexion {normalRange.dorsiflexion && <span className="text-gray-400">({normalRange.dorsiflexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.dorsiflexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'dorsiflexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Plantarflexion {normalRange.plantarflexion && <span className="text-gray-400">({normalRange.plantarflexion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.plantarflexion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'plantarflexion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Inversion {normalRange.inversion && <span className="text-gray-400">({normalRange.inversion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.inversion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'inversion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Eversion {normalRange.eversion && <span className="text-gray-400">({normalRange.eversion})</span>}
+                                    </label>
+                                    <div className="flex items-center space-x-1">
+                                      <input
+                                        type="number"
+                                        value={jointData.eversion || ''}
+                                        onChange={(e) => handleROMChange(joint, 'eversion', e.target.value)}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-xs text-gray-500">°</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                         
                         <div className="md:col-span-2 lg:col-span-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Notes (메모)</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-gray-700">Notes (메모)</label>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const romNotes = formData.rangeOfMotion?.[joint]?.notes || '';
+                                if (!romNotes) {
+                                  alert('개선할 텍스트를 입력해주세요.');
+                                  return;
+                                }
+                                
+                                const fieldKey = `rangeOfMotion.${joint}.notes`;
+                                setImprovingFields(prev => new Set(prev).add(fieldKey));
+                                
+                                try {
+                                  const improvedText = await improveEnglishText(romNotes, 'romNotes');
+                                  handleROMNotesChange(joint, improvedText);
+                                } catch (error) {
+                                  console.error('ROM notes 개선 실패:', error);
+                                } finally {
+                                  setImprovingFields(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(fieldKey);
+                                    return newSet;
+                                  });
+                                }
+                              }}
+                              disabled={!jointData.notes || improvingFields.has(`rangeOfMotion.${joint}.notes`)}
+                              className="text-xs px-1.5 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              {improvingFields.has(`rangeOfMotion.${joint}.notes`) ? '...' : '✎'}
+                            </button>
+                          </div>
                           <textarea
                             value={jointData.notes || ''}
                             onChange={(e) => handleROMNotesChange(joint, e.target.value)}
@@ -1506,24 +2962,44 @@ Instructions:
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Aggravating Factors</label>
                 <CheckboxGroup options={baseAggravatingFactors} selected={formData.chiefComplaint.provocation} onChange={(val, checked) => handleArrayChange('chiefComplaint', 'provocation', val, checked)} />
-                <InputField label="Other Factors" id="provocationOther" name="provocationOther" value={formData.chiefComplaint.provocationOther} onChange={handleComplaintChange} className="mt-2" />
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other Factors</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['chiefComplaint', 'provocationOther'], formData.chiefComplaint.provocationOther, 'provocationOther')}
+                      disabled={!formData.chiefComplaint.provocationOther || improvingFields.has('chiefComplaint.provocationOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('chiefComplaint.provocationOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="provocationOther" name="provocationOther" value={formData.chiefComplaint.provocationOther} onChange={handleComplaintChange} />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Alleviating Factors</label>
                 <CheckboxGroup options={baseAlleviatingFactors} selected={formData.chiefComplaint.palliation} onChange={(val, checked) => handleArrayChange('chiefComplaint', 'palliation', val, checked)} />
-                <InputField label="Other Factors" id="palliationOther" name="palliationOther" value={formData.chiefComplaint.palliationOther} onChange={handleComplaintChange} className="mt-2" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Quality of Pain</label>
-                <CheckboxGroup options={painQualities} selected={formData.chiefComplaint.quality} onChange={(val, checked) => handleArrayChange('chiefComplaint', 'quality', val, checked)} gridCols="grid-cols-2 md:grid-cols-4" />
-                <InputField label="Other Quality" id="qualityOther" name="qualityOther" value={formData.chiefComplaint.qualityOther} onChange={handleComplaintChange} className="mt-2" />
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other Factors</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['chiefComplaint', 'palliationOther'], formData.chiefComplaint.palliationOther, 'palliationOther')}
+                      disabled={!formData.chiefComplaint.palliationOther || improvingFields.has('chiefComplaint.palliationOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('chiefComplaint.palliationOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="palliationOther" name="palliationOther" value={formData.chiefComplaint.palliationOther} onChange={handleComplaintChange} />
+                </div>
               </div>
             </>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-4">
             <div>
                 <label htmlFor="frequency" className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
                 <select id="frequency" name="frequency" value={formData.chiefComplaint.frequency} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
@@ -1541,12 +3017,35 @@ Instructions:
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Possible Cause</label>
                 <CheckboxGroup options={basePossibleCauses} selected={formData.chiefComplaint.possibleCause} onChange={(val, checked) => handleArrayChange('chiefComplaint', 'possibleCause', val, checked)} />
-                <InputField label="Other Cause" id="possibleCauseOther" name="possibleCauseOther" value={formData.chiefComplaint.possibleCauseOther} onChange={handleComplaintChange} className="mt-2" />
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other Cause</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['chiefComplaint', 'possibleCauseOther'], formData.chiefComplaint.possibleCauseOther, 'possibleCauseOther')}
+                      disabled={!formData.chiefComplaint.possibleCauseOther || improvingFields.has('chiefComplaint.possibleCauseOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('chiefComplaint.possibleCauseOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="possibleCauseOther" name="possibleCauseOther" value={formData.chiefComplaint.possibleCauseOther} onChange={handleComplaintChange} />
+                </div>
             </div>
           )}
 
           <div>
-             <label htmlFor="remark" className="block text-sm font-medium text-gray-700 mb-1">{isFollowUp ? 'Follow-up Notes / Changes' : 'Remark'}</label>
+             <div className="flex items-center justify-between mb-1">
+               <label htmlFor="remark" className="block text-sm font-medium text-gray-700">{isFollowUp ? 'Follow-up Notes / Changes' : 'Remark'}</label>
+               <button
+                 type="button"
+                 onClick={() => handleImproveText(['chiefComplaint', 'remark'], formData.chiefComplaint.remark, 'remark')}
+                 disabled={!formData.chiefComplaint.remark || improvingFields.has('chiefComplaint.remark')}
+                 className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+               >
+                 {improvingFields.has('chiefComplaint.remark') ? 'Improving...' : '✎ Improve'}
+               </button>
+             </div>
              <textarea
                 id="remark"
                 name="remark"
@@ -1592,12 +3091,42 @@ Instructions:
                 </button>
             </div>
              <div>
-                <label htmlFor="presentIllness" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="presentIllness" className="block text-sm font-medium text-gray-700">Description</label>
+                  <button
+                    type="button"
+                    onClick={() => handleImproveText(['chiefComplaint', 'presentIllness'], formData.chiefComplaint.presentIllness, 'presentIllness')}
+                    disabled={!formData.chiefComplaint.presentIllness || improvingFields.has('chiefComplaint.presentIllness')}
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {improvingFields.has('chiefComplaint.presentIllness') ? 'Improving...' : '✎ Improve'}
+                  </button>
+                </div>
                 {isFollowUp && formData.respondToCare?.status && (
                     <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
-                        <strong>Note:</strong> This is a follow-up visit. Please include information about response to previous treatment (Status: {formData.respondToCare.status}
-                        {formData.respondToCare.status === 'Improved' && formData.respondToCare.improvedDays ? `, Good for ${formData.respondToCare.improvedDays} days` : ''}
-                        {formData.respondToCare.notes ? `. ${formData.respondToCare.notes}` : ''}).
+                        <strong>Note:</strong> This is a follow-up visit. Please include information about response to previous treatment:
+                        <ul className="list-disc list-inside mt-1 ml-2">
+                            <li>Status: {formData.respondToCare.status}</li>
+                            {formData.respondToCare.status === 'Improved' && formData.respondToCare.improvedDays && (
+                                <li>Improvement duration: {formData.respondToCare.improvedDays} days</li>
+                            )}
+                            {(formData.respondToCare.painLevelBefore || formData.respondToCare.painLevelCurrent) && (
+                                <li>Pain levels: {formData.respondToCare.painLevelBefore ? `Before: ${formData.respondToCare.painLevelBefore}/10` : ''} 
+                                    {formData.respondToCare.painLevelCurrent ? ` → Current: ${formData.respondToCare.painLevelCurrent}/10` : ''}</li>
+                            )}
+                            {(formData.respondToCare.canDriveWithoutPain || formData.respondToCare.canSitWithoutPain || 
+                              formData.respondToCare.canStandWithoutPain || formData.respondToCare.canWalkWithoutPain) && (
+                                <li>Functional improvements: {[
+                                    formData.respondToCare.canDriveWithoutPain && `Drive: ${formData.respondToCare.canDriveWithoutPain}`,
+                                    formData.respondToCare.canSitWithoutPain && `Sit: ${formData.respondToCare.canSitWithoutPain}`,
+                                    formData.respondToCare.canStandWithoutPain && `Stand: ${formData.respondToCare.canStandWithoutPain}`,
+                                    formData.respondToCare.canWalkWithoutPain && `Walk: ${formData.respondToCare.canWalkWithoutPain}`
+                                ].filter(Boolean).join(', ')}</li>
+                            )}
+                            {formData.respondToCare.notes && (
+                                <li>Additional notes: {formData.respondToCare.notes}</li>
+                            )}
+                        </ul>
                     </div>
                 )}
                 <textarea
@@ -1613,7 +3142,26 @@ Instructions:
                 ></textarea>
             </div>
             <div className="mt-6">
-                <InputField label="Western Medical Diagnosis (Only if the patient brings it)" id="westernMedicalDiagnosis" name="westernMedicalDiagnosis" value={formData.chiefComplaint.westernMedicalDiagnosis} onChange={handleComplaintChange} />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Western Medical Diagnosis (Only if the patient brings it)</label>
+                  <button
+                    type="button"
+                    onClick={() => handleImproveText(['chiefComplaint', 'westernMedicalDiagnosis'], formData.chiefComplaint.westernMedicalDiagnosis, 'westernMedicalDiagnosis')}
+                    disabled={!formData.chiefComplaint.westernMedicalDiagnosis || improvingFields.has('chiefComplaint.westernMedicalDiagnosis')}
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {improvingFields.has('chiefComplaint.westernMedicalDiagnosis') ? 'Improving...' : '✎ Improve'}
+                  </button>
+                </div>
+                <textarea
+                  id="westernMedicalDiagnosis"
+                  name="westernMedicalDiagnosis"
+                  value={formData.chiefComplaint.westernMedicalDiagnosis}
+                  onChange={handleComplaintChange}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="e.g., Lumbar disc herniation"
+                />
             </div>
           </div>
       
@@ -1621,33 +3169,85 @@ Instructions:
       {!isFollowUp && (
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Medical History</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+          <div className="space-y-6">
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">Past Medical History</label>
               <div className="space-y-4">
                 <CheckboxGroup options={pastMedicalHistoryOptions} selected={formData.medicalHistory.pastMedicalHistory} onChange={(val, checked) => handleArrayChange('medicalHistory', 'pastMedicalHistory', val, checked)} />
-                <InputField label="Other" id="pastMedicalHistoryOther" name="pastMedicalHistoryOther" value={formData.medicalHistory.pastMedicalHistoryOther} onChange={handleMedicalHistoryChange} />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['medicalHistory', 'pastMedicalHistoryOther'], formData.medicalHistory.pastMedicalHistoryOther, 'pastMedicalHistoryOther')}
+                      disabled={!formData.medicalHistory.pastMedicalHistoryOther || improvingFields.has('medicalHistory.pastMedicalHistoryOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('medicalHistory.pastMedicalHistoryOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="pastMedicalHistoryOther" name="pastMedicalHistoryOther" value={formData.medicalHistory.pastMedicalHistoryOther} onChange={handleMedicalHistoryChange} />
+                </div>
               </div>
             </div>
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">Medication</label>
               <div className="space-y-4">
                 <CheckboxGroup options={medicationOptions} selected={formData.medicalHistory.medication} onChange={(val, checked) => handleArrayChange('medicalHistory', 'medication', val, checked)} />
-                <InputField label="Other" id="medicationOther" name="medicationOther" value={formData.medicalHistory.medicationOther} onChange={handleMedicalHistoryChange} />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['medicalHistory', 'medicationOther'], formData.medicalHistory.medicationOther, 'medicationOther')}
+                      disabled={!formData.medicalHistory.medicationOther || improvingFields.has('medicalHistory.medicationOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('medicalHistory.medicationOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="medicationOther" name="medicationOther" value={formData.medicalHistory.medicationOther} onChange={handleMedicalHistoryChange} />
+                </div>
               </div>
             </div>
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">Family History</label>
               <div className="space-y-4">
                 <CheckboxGroup options={familyHistoryOptions} selected={formData.medicalHistory.familyHistory} onChange={(val, checked) => handleArrayChange('medicalHistory', 'familyHistory', val, checked)} />
-                <InputField label="Other" id="familyHistoryOther" name="familyHistoryOther" value={formData.medicalHistory.familyHistoryOther} onChange={handleMedicalHistoryChange} />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['medicalHistory', 'familyHistoryOther'], formData.medicalHistory.familyHistoryOther, 'familyHistoryOther')}
+                      disabled={!formData.medicalHistory.familyHistoryOther || improvingFields.has('medicalHistory.familyHistoryOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('medicalHistory.familyHistoryOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="familyHistoryOther" name="familyHistoryOther" value={formData.medicalHistory.familyHistoryOther} onChange={handleMedicalHistoryChange} />
+                </div>
               </div>
             </div>
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">Allergy</label>
               <div className="space-y-4">
                 <CheckboxGroup options={allergyOptions} selected={formData.medicalHistory.allergy} onChange={(val, checked) => handleArrayChange('medicalHistory', 'allergy', val, checked)} />
-                <InputField label="Other" id="allergyOther" name="allergyOther" value={formData.medicalHistory.allergyOther} onChange={handleMedicalHistoryChange} />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['medicalHistory', 'allergyOther'], formData.medicalHistory.allergyOther, 'allergyOther')}
+                      disabled={!formData.medicalHistory.allergyOther || improvingFields.has('medicalHistory.allergyOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('medicalHistory.allergyOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="allergyOther" name="allergyOther" value={formData.medicalHistory.allergyOther} onChange={handleMedicalHistoryChange} />
+                </div>
               </div>
             </div>
           </div>
@@ -1658,6 +3258,12 @@ Instructions:
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Review of Systems</h2>
         <div className="space-y-6">
+            
+            {/* Energy - 제일 앞으로 이동 */}
+            <div>
+                <label className="block text-lg font-medium text-gray-700 mb-2">Energy</label>
+                <InputField label="Energy ( /10)" type="number" id="energy" value={formData.reviewOfSystems.appetiteEnergy.energy} onChange={e => handleReviewOfSystemsChange('appetiteEnergy', 'energy', e.target.value)} />
+            </div>
             
             {/* Cold / Hot */}
             <div>
@@ -1670,10 +3276,23 @@ Instructions:
                         {value: 'hand', label: 'hand (손)'}, {value: 'fingers', label: 'fingers (손가락)'}, {value: 'feet', label: 'feet (발)'}, {value: 'toes', label: 'toes (발가락)'}, 
                         {value: 'knee', label: 'knee (무릎)'}, {value: 'leg', label: 'leg (다리)'}, {value: 'waist', label: 'waist (허리)'}, {value: 'back', label: 'back (등)'}, 
                         {value: 'shoulder', label: 'shoulder (어깨)'}, {value: 'whole body', label: 'whole body (전신)'}
-                      ]} selected={formData.reviewOfSystems.coldHot.parts} onChange={(val, checked) => handleRosArrayChange('coldHot', 'parts', val, checked)} gridCols="grid-cols-2 md:grid-cols-4 lg:grid-cols-5" />
+                      ]} selected={formData.reviewOfSystems.coldHot.parts} onChange={(val, checked) => handleRosArrayChange('coldHot', 'parts', val, checked)} gridCols="grid-cols-4" />
                   </div>
                 )}
-                <InputField label="Other" id="coldHotOther" name="other" value={formData.reviewOfSystems.coldHot.other} onChange={e => handleReviewOfSystemsChange('coldHot', 'other', e.target.value)} className="mt-2" />
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['reviewOfSystems', 'coldHotOther'], formData.reviewOfSystems.coldHot.other, 'coldHotOther')}
+                      disabled={!formData.reviewOfSystems.coldHot.other || improvingFields.has('reviewOfSystems.coldHotOther')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('reviewOfSystems.coldHotOther') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
+                  <InputField label="" id="coldHotOther" name="other" value={formData.reviewOfSystems.coldHot.other} onChange={e => handleReviewOfSystemsChange('coldHot', 'other', e.target.value)} />
+                </div>
             </div>
 
              {/* Sleep */}
@@ -1693,13 +3312,27 @@ Instructions:
                     <label className="block text-sm font-medium text-gray-600 mb-1">Quality/Issues:</label>
                     <CheckboxGroup options={[
                         {value: 'O.K.', label: 'O.K. (괜찮음)'}, {value: 'dream', label: 'dream (꿈)'}, {value: 'nightmare', label: 'nightmare (악몽)'}, 
-                        {value: 'insomnia', label: 'insomnia (불면증)'}, {value: 'easily wake up', label: 'easily wake up (잘 깸)'}, 
-                        {value: 'hard to fall asleep', label: 'hard to fall asleep (잠들기 어려움)'}, {value: 'pain', label: 'pain (통증)'}
-                    ]} selected={[...formData.reviewOfSystems.sleep.quality, ...formData.reviewOfSystems.sleep.issues]} onChange={(val, checked) => {
+                        {value: 'insomnia', label: 'insomnia (불면증)'}
+                    ]} selected={[...formData.reviewOfSystems.sleep.quality, ...formData.reviewOfSystems.sleep.issues].filter(v => !['easily wake up', 'hard to fall asleep', 'pain'].includes(v))} onChange={(val, checked) => {
                          const isQuality = ['O.K.', 'dream', 'nightmare'].includes(val);
-                         if(isQuality) handleRosArrayChange('sleep', 'quality', val, checked);
-                         else handleRosArrayChange('sleep', 'issues', val, checked);
-                    }} gridCols="grid-cols-2 md:grid-cols-4" />
+                         if(isQuality) {
+                             handleRosArrayChange('sleep', 'quality', val, checked);
+                         } else {
+                             handleRosArrayChange('sleep', 'issues', val, checked);
+                         }
+                    }} gridCols="grid-cols-4" />
+                    {(formData.reviewOfSystems.sleep.quality.includes('insomnia') || formData.reviewOfSystems.sleep.issues.includes('insomnia')) && (
+                        <div className="mt-2">
+                            <label className="block text-sm font-medium text-gray-600 mb-1">Insomnia Details (multi-select):</label>
+                            <CheckboxGroup options={[
+                                {value: 'easily wake up', label: 'easily wake up (잘 깸)'}, 
+                                {value: 'hard to fall asleep', label: 'hard to fall asleep (잠들기 어려움)'}, 
+                                {value: 'pain', label: 'pain (통증)'}
+                            ]} selected={[...formData.reviewOfSystems.sleep.quality, ...formData.reviewOfSystems.sleep.issues].filter(v => ['easily wake up', 'hard to fall asleep', 'pain'].includes(v))} onChange={(val, checked) => {
+                                handleRosArrayChange('sleep', 'issues', val, checked);
+                            }} gridCols="grid-cols-3" />
+                        </div>
+                    )}
                 </div>
              </div>
 
@@ -1708,7 +3341,7 @@ Instructions:
                 <label className="block text-lg font-medium text-gray-700 mb-2">Sweat</label>
                 <RadioGroup name="sweatPresent" selectedValue={formData.reviewOfSystems.sweat.present} options={[{value: 'yes', label: 'Yes (있음)'}, {value: 'no', label: 'No (없음)'}]} onChange={e => handleReviewOfSystemsChange('sweat', 'present', e.target.value)} />
                 {formData.reviewOfSystems.sweat.present === 'yes' && (
-                  <div className="mt-2 pl-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                  <div className="mt-2 pl-2 grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-600 mb-1">Time:</label>
                         <RadioGroup name="sweatTime" selectedValue={formData.reviewOfSystems.sweat.time} options={[{value: 'night', label: 'Night (밤)'}, {value: 'day', label: 'Day (낮)'}, {value: 'all time', label: 'Both (항상)'}]} onChange={e => handleReviewOfSystemsChange('sweat', 'time', e.target.value)} />
@@ -1718,7 +3351,7 @@ Instructions:
                         <CheckboxGroup options={[
                           {value: 'hand', label: 'hand (손)'}, {value: 'foot', label: 'foot (발)'}, {value: 'head', label: 'head (머리)'}, 
                           {value: 'chest', label: 'chest (가슴)'}, {value: 'whole body', label: 'whole body (전신)'}
-                        ]} selected={formData.reviewOfSystems.sweat.parts} onChange={(val, checked) => handleRosArrayChange('sweat', 'parts', val, checked)} gridCols="grid-cols-2 md:grid-cols-3 lg:grid-cols-5" />
+                        ]} selected={formData.reviewOfSystems.sweat.parts} onChange={(val, checked) => handleRosArrayChange('sweat', 'parts', val, checked)} gridCols="grid-cols-4" />
                     </div>
                   </div>
                 )}
@@ -1727,11 +3360,56 @@ Instructions:
              {/* Eye, Mouth, Throat */}
             <div>
                 <label className="block text-lg font-medium text-gray-700 mb-2">Eye</label>
+                <RadioGroup 
+                    name="eyeNormal" 
+                    selectedValue={formData.reviewOfSystems.eye.symptoms.includes('normal') ? 'normal' : 'abnormal'} 
+                    options={[
+                        {value: 'normal', label: 'normal (정상)'}, 
+                        {value: 'abnormal', label: 'Abnormal (비정상)'}
+                    ]} 
+                    onChange={e => {
+                        if (e.target.value === 'normal') {
+                            setFormData(prev => ({
+                                ...prev,
+                                reviewOfSystems: {
+                                    ...prev.reviewOfSystems,
+                                    eye: {
+                                        ...prev.reviewOfSystems.eye,
+                                        symptoms: ['normal']
+                                    }
+                                }
+                            }));
+                        } else {
+                            setFormData(prev => ({
+                                ...prev,
+                                reviewOfSystems: {
+                                    ...prev.reviewOfSystems,
+                                    eye: {
+                                        ...prev.reviewOfSystems.eye,
+                                        symptoms: prev.reviewOfSystems.eye.symptoms.filter(s => s !== 'normal')
+                                    }
+                                }
+                            }));
+                        }
+                    }} 
+                />
+                {!formData.reviewOfSystems.eye.symptoms.includes('normal') && (
+                    <div className="mt-2">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Symptoms (multi-select, max 2):</label>
                 <CheckboxGroup options={[
-                  {value: 'normal', label: 'normal (정상)'}, {value: 'dry', label: 'dry (건조한)'}, {value: 'sandy', label: 'sandy (모래알 같은)'}, {value: 'redness', label: 'redness (빨갛게 충혈된)'}, 
+                            {value: 'dry', label: 'dry (건조한)'}, {value: 'sandy', label: 'sandy (모래알 같은)'}, {value: 'redness', label: 'redness (빨갛게 충혈된)'}, 
                   {value: 'tearing', label: 'tearing (눈물나는)'}, {value: 'fatigued', label: 'fatigued (피로한)'}, {value: 'pain', label: 'pain (통증)'}, 
                   {value: 'twitching', label: 'twitching (경련)'}, {value: 'dizzy', label: 'dizzy (어지러운)'}, {value: 'vertigo', label: 'vertigo (현기증)'}
-                ]} selected={formData.reviewOfSystems.eye.symptoms} onChange={(val, checked) => handleRosArrayChange('eye', 'symptoms', val, checked)} gridCols="grid-cols-2 md:grid-cols-4 lg:grid-cols-5" />
+                        ]} selected={formData.reviewOfSystems.eye.symptoms} onChange={(val, checked) => {
+                            const currentSymptoms = formData.reviewOfSystems.eye.symptoms.filter(s => s !== 'normal');
+                            if (checked && currentSymptoms.length < 2) {
+                                handleRosArrayChange('eye', 'symptoms', val, checked);
+                            } else if (!checked) {
+                                handleRosArrayChange('eye', 'symptoms', val, checked);
+                            }
+                        }} gridCols="grid-cols-4" />
+                    </div>
+                )}
             </div>
             <div>
                 <label className="block text-lg font-medium text-gray-700 mb-2">Mouth / Tongue</label>
@@ -1744,11 +3422,45 @@ Instructions:
             </div>
             <div>
                 <label className="block text-lg font-medium text-gray-700 mb-2">Throat / Nose</label>
-                <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Symptoms:</label>
+                <RadioGroup 
+                    name="throatNoseNormal" 
+                    selectedValue={formData.reviewOfSystems.throatNose.symptoms.includes('normal') ? 'normal' : 'abnormal'} 
+                    options={[
+                        {value: 'normal', label: 'normal (정상)'}, 
+                        {value: 'abnormal', label: 'Abnormal (비정상)'}
+                    ]} 
+                    onChange={e => {
+                        if (e.target.value === 'normal') {
+                            setFormData(prev => ({
+                                ...prev,
+                                reviewOfSystems: {
+                                    ...prev.reviewOfSystems,
+                                    throatNose: {
+                                        ...prev.reviewOfSystems.throatNose,
+                                        symptoms: ['normal']
+                                    }
+                                }
+                            }));
+                        } else {
+                            setFormData(prev => ({
+                                ...prev,
+                                reviewOfSystems: {
+                                    ...prev.reviewOfSystems,
+                                    throatNose: {
+                                        ...prev.reviewOfSystems.throatNose,
+                                        symptoms: prev.reviewOfSystems.throatNose.symptoms.filter(s => s !== 'normal')
+                                    }
+                                }
+                            }));
+                        }
+                    }} 
+                />
+                {!formData.reviewOfSystems.throatNose.symptoms.includes('normal') && (
+                    <div className="mt-2">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Symptoms (multi-select, max 2):</label>
                     <div className="flex flex-wrap gap-x-6 gap-y-2">
                         {[
-                          {value: 'normal', label: 'normal (정상)'}, {value: 'block', label: 'block (막힌)'}, {value: 'itchy', label: 'itchy (가려운)'}, 
+                                {value: 'block', label: 'block (막힌)'}, {value: 'itchy', label: 'itchy (가려운)'}, 
                           {value: 'pain', label: 'pain (통증)'}, {value: 'mucus', label: 'mucus (점액)'}, {value: 'sputum', label: 'sputum (가래)'}, {value: 'bloody', label: 'bloody (피가 섞인)'}
                         ].map(o => (
                             <div key={o.value} className="flex items-center">
@@ -1757,7 +3469,14 @@ Instructions:
                                     id={`throatNose_${o.value}`}
                                     value={o.value}
                                     checked={formData.reviewOfSystems.throatNose.symptoms.includes(o.value)}
-                                    onChange={(e) => handleRosArrayChange('throatNose', 'symptoms', o.value, e.target.checked)}
+                                        onChange={(e) => {
+                                            const currentSymptoms = formData.reviewOfSystems.throatNose.symptoms.filter(s => s !== 'normal');
+                                            if (e.target.checked && currentSymptoms.length < 2) {
+                                                handleRosArrayChange('throatNose', 'symptoms', o.value, e.target.checked);
+                                            } else if (!e.target.checked) {
+                                                handleRosArrayChange('throatNose', 'symptoms', o.value, e.target.checked);
+                                            }
+                                        }}
                                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                 />
                                 <label htmlFor={`throatNose_${o.value}`} className="ml-2 text-sm text-gray-600">{o.label}</label>
@@ -1765,6 +3484,7 @@ Instructions:
                         ))}
                     </div>
                 </div>
+                )}
                 {formData.reviewOfSystems.throatNose.symptoms.includes('mucus') && (
                     <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-600 mb-1">Mucus Color:</label>
@@ -1801,14 +3521,27 @@ Instructions:
                       {value: 'face', label: 'face (얼굴)'}, {value: 'hand', label: 'hand (손)'}, {value: 'finger', label: 'finger (손가락)'}, 
                       {value: 'leg', label: 'leg (다리)'}, {value: 'foot', label: 'foot (발)'}, {value: 'chest', label: 'chest (가슴)'}, 
                       {value: 'whole body', label: 'whole body (전신)'}
-                    ]} selected={formData.reviewOfSystems.edema.parts} onChange={(val, checked) => handleRosArrayChange('edema', 'parts', val, checked)} gridCols="grid-cols-2 md:grid-cols-4" />
-                    <InputField label="Other" id="edemaOther" value={formData.reviewOfSystems.edema.other} onChange={e => handleReviewOfSystemsChange('edema', 'other', e.target.value)} className="mt-2" />
+                    ]} selected={formData.reviewOfSystems.edema.parts} onChange={(val, checked) => handleRosArrayChange('edema', 'parts', val, checked)} gridCols="grid-cols-4" />
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Other</label>
+                        <button
+                          type="button"
+                          onClick={() => handleImproveText(['reviewOfSystems', 'edemaOther'], formData.reviewOfSystems.edema.other, 'edemaOther')}
+                          disabled={!formData.reviewOfSystems.edema.other || improvingFields.has('reviewOfSystems.edemaOther')}
+                          className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {improvingFields.has('reviewOfSystems.edemaOther') ? 'Improving...' : '✎ Improve'}
+                        </button>
+                      </div>
+                      <InputField label="" id="edemaOther" value={formData.reviewOfSystems.edema.other} onChange={e => handleReviewOfSystemsChange('edema', 'other', e.target.value)} />
+                    </div>
                   </div>
                 )}
              </div>
              
-             {/* Drink, Digestion, Appetite */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Drink, Digestion, Appetite - vertical layout */}
+            <div className="flex flex-col gap-6">
                 <div>
                     <label className="block text-lg font-medium text-gray-700 mb-2">Drink</label>
                     <RadioGroup name="drinkThirsty" selectedValue={formData.reviewOfSystems.drink.thirsty} options={[{value: 'thirsty', label: 'Thirsty (목마른)'}, {value: 'normal', label: 'Normal (정상)'}, {value: 'no', label: 'Not Thirsty (목마르지 않은)'}]} onChange={e => handleReviewOfSystemsChange('drink', 'thirsty', e.target.value)} />
@@ -1819,40 +3552,115 @@ Instructions:
                 </div>
                  <div>
                     <label className="block text-lg font-medium text-gray-700 mb-2">Digestion</label>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Status:</label>
+                        <RadioGroup name="digestionStatus" selectedValue={
+                            formData.reviewOfSystems.digestion.symptoms.includes('good') ? 'good' :
+                            formData.reviewOfSystems.digestion.symptoms.includes('ok') ? 'ok' :
+                            formData.reviewOfSystems.digestion.symptoms.includes('sometimes bad') ? 'sometimes bad' :
+                            formData.reviewOfSystems.digestion.symptoms.includes('bad') ? 'bad' : ''
+                        } options={[
+                            {value: 'good', label: 'good (좋음)'}, {value: 'ok', label: 'ok (괜찮음)'}, 
+                            {value: 'sometimes bad', label: 'sometimes bad (가끔 나쁨)'}, {value: 'bad', label: 'bad (나쁨)'}
+                        ]} onChange={e => {
+                            const status = e.target.value;
+                            const otherSymptoms = formData.reviewOfSystems.digestion.symptoms.filter(s => !['good', 'ok', 'sometimes bad', 'bad'].includes(s));
+                            setFormData(prev => ({
+                                ...prev,
+                                reviewOfSystems: {
+                                    ...prev.reviewOfSystems,
+                                    digestion: {
+                                        ...prev.reviewOfSystems.digestion,
+                                        symptoms: status ? [status, ...otherSymptoms] : otherSymptoms
+                                    }
+                                }
+                            }));
+                        }} />
+                    </div>
+                    {(formData.reviewOfSystems.digestion.symptoms.includes('sometimes bad') || formData.reviewOfSystems.digestion.symptoms.includes('bad')) && (
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-600 mb-1">Symptoms (multi-select):</label>
                     <CheckboxGroup options={[
-                      {value: 'good', label: 'good (좋음)'}, {value: 'ok', label: 'ok (괜찮음)'}, {value: 'sometimes bad', label: 'sometimes bad (가끔 나쁨)'}, 
-                      {value: 'bad', label: 'bad (나쁨)'}, {value: 'pain', label: 'pain (통증)'}, {value: 'acid', label: 'acid (산)'}, 
+                                {value: 'pain', label: 'pain (통증)'}, {value: 'acid', label: 'acid (산)'}, 
                       {value: 'bloat', label: 'bloat (부풀어 오름)'}, {value: 'blech', label: 'blech (트림)'}, {value: 'heart burn', label: 'heart burn (속쓰림)'}, 
                       {value: 'bad breath', label: 'bad breath (입냄새)'}, {value: 'nausea', label: 'nausea (메스꺼움)'}
-                    ]} selected={formData.reviewOfSystems.digestion.symptoms} onChange={(val, checked) => handleRosArrayChange('digestion', 'symptoms', val, checked)} gridCols="grid-cols-2" />
+                            ]} selected={formData.reviewOfSystems.digestion.symptoms.filter(s => !['good', 'ok', 'sometimes bad', 'bad'].includes(s))} onChange={(val, checked) => {
+                                const status = formData.reviewOfSystems.digestion.symptoms.find(s => ['good', 'ok', 'sometimes bad', 'bad'].includes(s)) || '';
+                                const currentOtherSymptoms = formData.reviewOfSystems.digestion.symptoms.filter(s => !['good', 'ok', 'sometimes bad', 'bad'].includes(s));
+                                if (checked) {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        reviewOfSystems: {
+                                            ...prev.reviewOfSystems,
+                                            digestion: {
+                                                ...prev.reviewOfSystems.digestion,
+                                                symptoms: status ? [status, ...currentOtherSymptoms, val] : [...currentOtherSymptoms, val]
+                                            }
+                                        }
+                                    }));
+                                } else {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        reviewOfSystems: {
+                                            ...prev.reviewOfSystems,
+                                            digestion: {
+                                                ...prev.reviewOfSystems.digestion,
+                                                symptoms: status ? [status, ...currentOtherSymptoms.filter(s => s !== val)] : currentOtherSymptoms.filter(s => s !== val)
+                                            }
+                                        }
+                                    }));
+                                }
+                            }} gridCols="grid-cols-3" />
+                        </div>
+                    )}
                 </div>
                  <div>
-                    <label className="block text-lg font-medium text-gray-700 mb-2">Appetite / Energy</label>
+                    <label className="block text-lg font-medium text-gray-700 mb-2">Appetite</label>
                      <RadioGroup name="appetite" selectedValue={formData.reviewOfSystems.appetiteEnergy.appetite} options={[{value: 'good', label: 'Good (좋음)'}, {value: 'ok', label: 'OK (괜찮음)'}, {value: 'sometimes bad', label: 'Sometimes Bad (가끔 나쁨)'}, {value: 'bad', label: 'Bad (나쁨)'}]} onChange={e => handleReviewOfSystemsChange('appetiteEnergy', 'appetite', e.target.value)} />
-                     <div className="mt-2">
-                        <InputField label="Energy ( /10)" type="number" id="energy" value={formData.reviewOfSystems.appetiteEnergy.energy} onChange={e => handleReviewOfSystemsChange('appetiteEnergy', 'energy', e.target.value)} />
-                     </div>
                 </div>
             </div>
 
-            {/* Stool & Urine */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 border-t pt-6 mt-6">
+            {/* Urination */}
+            <div className="border-t pt-6 mt-6">
                 <div>
                     <label className="block text-lg font-medium text-gray-700 mb-2">Urination</label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                         <InputField label="Times a day" id="urineFrequencyDay" value={formData.reviewOfSystems.urine.frequencyDay} onChange={e => handleReviewOfSystemsChange('urine', 'frequencyDay', e.target.value)} />
                         <InputField label="Times at night" id="urineFrequencyNight" value={formData.reviewOfSystems.urine.frequencyNight} onChange={e => handleReviewOfSystemsChange('urine', 'frequencyNight', e.target.value)} />
                     </div>
-                    <div className="mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
                         <label className="block text-sm font-medium text-gray-600 mb-1">Amount:</label>
                         <RadioGroup name="urineAmount" selectedValue={formData.reviewOfSystems.urine.amount} options={[{value: 'much', label: 'Much (많은)'}, {value: 'normal', label: 'Normal (정상)'}, {value: 'scanty', label: 'Scanty (적은)'}]} onChange={e => handleReviewOfSystemsChange('urine', 'amount', e.target.value)} />
                     </div>
-                    <InputField label="Color" id="urineColor" value={formData.reviewOfSystems.urine.color || 'pale yellow'} onChange={e => handleReviewOfSystemsChange('urine', 'color', e.target.value)} placeholder="pale yellow" className="mt-4"/>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">Color:</label>
+                            <select 
+                                id="urineColor" 
+                                value={formData.reviewOfSystems.urine.color || 'pale yellow'} 
+                                onChange={e => handleReviewOfSystemsChange('urine', 'color', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            >
+                                <option value="pale yellow">Pale Yellow (연한 노란색) - Normal</option>
+                                <option value="yellow">Yellow (노란색)</option>
+                                <option value="dark yellow">Dark Yellow (진한 노란색)</option>
+                                <option value="amber">Amber (호박색)</option>
+                                <option value="orange">Orange (주황색)</option>
+                                <option value="red">Red (빨간색)</option>
+                                <option value="brown">Brown (갈색)</option>
+                                <option value="cloudy">Cloudy (흐린)</option>
+                                <option value="clear">Clear (맑은)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 </div>
 
+            {/* Stool */}
+            <div className="border-t pt-6 mt-6">
                 <div>
                     <label className="block text-lg font-medium text-gray-700 mb-2">Stool</label>
-                    <div>
+                    <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
                         <div className="flex items-center space-x-2">
                             <input type="text" name="stoolFrequencyValue" value={formData.reviewOfSystems.stool.frequencyValue} onChange={e => handleReviewOfSystemsChange('stool', 'frequencyValue', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 1 or 2-3" />
@@ -1863,11 +3671,32 @@ Instructions:
                             </select>
                         </div>
                     </div>
-                    <div className="mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
                       <label className="block text-sm font-medium text-gray-600 mb-1">Form:</label>
                       <RadioGroup name="stoolForm" selectedValue={formData.reviewOfSystems.stool.form} options={[{value: 'normal', label: 'Normal (정상)'}, {value: 'diarrhea', label: 'Diarrhea (설사)'}, {value: 'constipation', label: 'Constipation (변비)'}, {value: 'alternating', label: 'Alternating (교대)'}]} onChange={e => handleReviewOfSystemsChange('stool', 'form', e.target.value)} />
                     </div>
-                    <InputField label="Color" id="stoolColor" value={formData.reviewOfSystems.stool.color || 'brown'} onChange={e => handleReviewOfSystemsChange('stool', 'color', e.target.value)} placeholder="brown" className="mt-4"/>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-600 mb-1">Color:</label>
+                            <select 
+                                id="stoolColor" 
+                                value={formData.reviewOfSystems.stool.color || 'brown'} 
+                                onChange={e => handleReviewOfSystemsChange('stool', 'color', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            >
+                                <option value="brown">Brown (갈색) - Normal</option>
+                                <option value="dark brown">Dark Brown (진한 갈색)</option>
+                                <option value="light brown">Light Brown (밝은 갈색)</option>
+                                <option value="green">Green (녹색)</option>
+                                <option value="yellow">Yellow (노란색)</option>
+                                <option value="black">Black (검은색)</option>
+                                <option value="red">Red (빨간색)</option>
+                                <option value="gray">Gray (회색)</option>
+                                <option value="clay">Clay (점토색)</option>
+                                <option value="white">White (흰색)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1888,17 +3717,20 @@ Instructions:
                     </div>
 
                     {formData.reviewOfSystems.menstruation.status === 'menopause' ? (
+                        !isFollowUp ? (
+                            // Follow-up 차트가 아닐 때만 age를 묻기
                         <div className="mt-4">
                             <InputField label="Age at Menopause" id="menopauseAge" type="number" value={formData.reviewOfSystems.menstruation.menopauseAge} onChange={e => handleReviewOfSystemsChange('menstruation', 'menopauseAge', e.target.value)} />
                         </div>
+                        ) : null
                     ) : formData.reviewOfSystems.menstruation.status !== '' ? (
                         <div className="mt-4 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-3 gap-6">
                                 <InputField label="LMP (Last Menstrual Period)" id="lmp" type="date" value={formData.reviewOfSystems.menstruation.lmp} onChange={e => handleReviewOfSystemsChange('menstruation', 'lmp', e.target.value)} />
                                 <InputField label="Cycle (days)" id="cycleLength" type="number" value={formData.reviewOfSystems.menstruation.cycleLength} onChange={e => handleReviewOfSystemsChange('menstruation', 'cycleLength', e.target.value)} />
                                 <InputField label="Duration (days)" id="duration" type="number" value={formData.reviewOfSystems.menstruation.duration} onChange={e => handleReviewOfSystemsChange('menstruation', 'duration', e.target.value)} />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Amount:</label>
                                     <RadioGroup name="menstruationAmount" selectedValue={formData.reviewOfSystems.menstruation.amount} options={[{value: 'normal', label: 'Normal (정상)'}, {value: 'scanty', label: 'Scanty (적은)'}, {value: 'heavy', label: 'Heavy (많은)'}]} onChange={e => handleReviewOfSystemsChange('menstruation', 'amount', e.target.value)} />
@@ -1912,7 +3744,7 @@ Instructions:
                                     <RadioGroup name="menstruationClots" selectedValue={formData.reviewOfSystems.menstruation.clots} options={[{value: 'yes', label: 'Yes (있음)'}, {value: 'no', label: 'No (없음)'}]} onChange={e => handleReviewOfSystemsChange('menstruation', 'clots', e.target.value)} />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-3 gap-4">
                                 <div>
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Pain:</label>
                                 <RadioGroup name="menstruationPain" selectedValue={formData.reviewOfSystems.menstruation.pain} options={[{value: 'yes', label: 'Yes (있음)'}, {value: 'no', label: 'No (없음)'}]} onChange={e => handleReviewOfSystemsChange('menstruation', 'pain', e.target.value)} />
@@ -1927,7 +3759,7 @@ Instructions:
                                   {value: 'irritability', label: 'irritability (과민반응)'}, 
                                   {value: 'bloating', label: 'bloating (복부 팽만)'}, 
                                   {value: 'headache', label: 'headache (두통)'}
-                                ]} selected={formData.reviewOfSystems.menstruation.pms} onChange={(val, checked) => handleRosArrayChange('menstruation', 'pms', val, checked)} gridCols="grid-cols-2" />
+                                ]} selected={formData.reviewOfSystems.menstruation.pms} onChange={(val, checked) => handleRosArrayChange('menstruation', 'pms', val, checked)} gridCols="grid-cols-3" />
                                 </div>
                             </div>
                         </div>
@@ -1948,8 +3780,21 @@ Instructions:
                                   {value: 'yellow', label: 'yellow (노란)'}, {value: 'white', label: 'white (흰색)'}, 
                                   {value: 'sticky', label: 'sticky (끈끈한)'}, {value: 'no smell', label: 'no smell (냄새 없음)'}, 
                                   {value: 'foul smell', label: 'foul smell (악취)'}
-                                ]} selected={formData.reviewOfSystems.discharge.symptoms} onChange={(val, checked) => handleRosArrayChange('discharge', 'symptoms', val, checked)} gridCols="grid-cols-2 md:grid-cols-4" />
-                                <InputField label="Other" id="dischargeOther" value={formData.reviewOfSystems.discharge.other} onChange={e => handleReviewOfSystemsChange('discharge', 'other', e.target.value)} className="mt-2" />
+                                ]} selected={formData.reviewOfSystems.discharge.symptoms} onChange={(val, checked) => handleRosArrayChange('discharge', 'symptoms', val, checked)} gridCols="grid-cols-4" />
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-sm font-medium text-gray-700">Other</label>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleImproveText(['reviewOfSystems', 'dischargeOther'], formData.reviewOfSystems.discharge.other, 'dischargeOther')}
+                                      disabled={!formData.reviewOfSystems.discharge.other || improvingFields.has('reviewOfSystems.dischargeOther')}
+                                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    >
+                                      {improvingFields.has('reviewOfSystems.dischargeOther') ? 'Improving...' : '✎ Improve'}
+                                    </button>
+                                  </div>
+                                  <InputField label="" id="dischargeOther" value={formData.reviewOfSystems.discharge.other} onChange={e => handleReviewOfSystemsChange('discharge', 'other', e.target.value)} />
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1971,15 +3816,15 @@ Instructions:
                 </div>
                  <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Color Modifiers (Multi-Choice):</label>
-                  <CheckboxGroup options={tongueBodyColorModifierOptions} selected={formData.tongue.body.colorModifiers} onChange={(val, checked) => handleTongueBodyArrayChange('colorModifiers', val, checked)} gridCols="grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" />
+                  <CheckboxGroup options={tongueBodyColorModifierOptions} selected={formData.tongue.body.colorModifiers} onChange={(val, checked) => handleTongueBodyArrayChange('colorModifiers', val, checked)} gridCols="grid-cols-3" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Shape (Single Choice):</label>
-                  <RadioGroup options={tongueBodyShapeOptions} name="tongueBodyShape" selectedValue={formData.tongue.body.shape} onChange={e => handleTongueBodyChange('shape', e.target.value)} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-2"/>
+                  <RadioGroup options={tongueBodyShapeOptions} name="tongueBodyShape" selectedValue={formData.tongue.body.shape} onChange={e => handleTongueBodyChange('shape', e.target.value)} className="grid grid-cols-3 gap-x-6 gap-y-2"/>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Shape Modifiers (Multi-Choice):</label>
-                  <CheckboxGroup options={tongueBodyShapeModifierOptions} selected={formData.tongue.body.shapeModifiers} onChange={(val, checked) => handleTongueBodyArrayChange('shapeModifiers', val, checked)} gridCols="grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" />
+                  <CheckboxGroup options={tongueBodyShapeModifierOptions} selected={formData.tongue.body.shapeModifiers} onChange={(val, checked) => handleTongueBodyArrayChange('shapeModifiers', val, checked)} gridCols="grid-cols-3" />
                 </div>
                 {formData.tongue.body.shapeModifiers.includes('Cracked') && (
                 <div>
@@ -1988,7 +3833,7 @@ Instructions:
                         options={tongueLocationOptions} 
                         selected={formData.tongue.body.locations} 
                         onChange={(val, checked) => handleTongueBodyArrayChange('locations', val, checked)} 
-                        gridCols="grid-cols-1 sm:grid-cols-3" 
+                        gridCols="grid-cols-3" 
                     />
                     <InputField
                         label="Location Comments"
@@ -2012,10 +3857,20 @@ Instructions:
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Quality (Max 2 Choices):</label>
-                  <CheckboxGroup options={tongueCoatingQualityOptions} selected={formData.tongue.coating.quality} onChange={(val, checked) => handleTongueCoatingArrayChange('quality', val, checked)} gridCols="grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" />
+                  <CheckboxGroup options={tongueCoatingQualityOptions} selected={formData.tongue.coating.quality} onChange={(val, checked) => handleTongueCoatingArrayChange('quality', val, checked)} gridCols="grid-cols-4" />
                 </div>
                  <div>
-                  <label htmlFor="tongueCoatingNotes" className="block text-sm font-medium text-gray-600 mb-1">Notes:</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="tongueCoatingNotes" className="block text-sm font-medium text-gray-600">Notes:</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['tongue', 'coating', 'notes'], formData.tongue.coating.notes, 'tongueCoatingNotes')}
+                      disabled={!formData.tongue.coating.notes || improvingFields.has('tongue.coating.notes')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('tongue.coating.notes') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
                   <textarea
                     id="tongueCoatingNotes"
                     value={formData.tongue.coating.notes}
@@ -2037,7 +3892,7 @@ Instructions:
           <div>
             <label className="block text-lg font-medium text-gray-700 mb-2">Overall Qualities</label>
             <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <div className="p-2 border rounded-md bg-slate-50">
                         <h4 className="text-sm font-semibold text-center text-gray-600 mb-2">부/침 (Floating/Sinking)</h4>
                         <CheckboxGroup options={pulseQualityPairs.buChim} selected={formData.pulse.overall} onChange={handlePulseOverallChange} gridCols="grid-cols-2" />
@@ -2057,7 +3912,7 @@ Instructions:
                       options={excessPulseQualities}
                       selected={formData.pulse.overall}
                       onChange={(val, checked) => handlePulseOverallChange(val, checked)}
-                      gridCols="grid-cols-2 sm:grid-cols-3 md:grid-cols-5"
+                      gridCols="grid-cols-5"
                     />
                 </div>
                  <div className="border-t pt-4">
@@ -2066,7 +3921,7 @@ Instructions:
                       options={deficientPulseQualities}
                       selected={formData.pulse.overall}
                       onChange={(val, checked) => handlePulseOverallChange(val, checked)}
-                      gridCols="grid-cols-2 sm:grid-cols-3 md:grid-cols-5"
+                      gridCols="grid-cols-5"
                     />
                 </div>
                 <div className="border-t pt-4">
@@ -2075,16 +3930,16 @@ Instructions:
                       options={otherRemainingPulseQualities}
                       selected={formData.pulse.overall}
                       onChange={(val, checked) => handlePulseOverallChange(val, checked)}
-                      gridCols="grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                      gridCols="grid-cols-2"
                     />
                 </div>
             </div>
           </div>
           <div className="border-t pt-6">
               <label className="block text-lg font-medium text-gray-700 mb-4">Pulse Notes / Details</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                   <div>
-                      <label htmlFor="pulseCun" className="block text-sm font-medium text-gray-600 mb-1">촌 (Cun) - 손목 가까운 쪽</label>
+                      <label htmlFor="pulseCun" className="block text-sm font-medium text-gray-600 mb-1">Cun (촌) - near the wrist</label>
                       <textarea
                         id="pulseCun"
                         name="pulseCun"
@@ -2092,11 +3947,11 @@ Instructions:
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, cun: e.target.value } }))}
                         rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="촌 위치의 맥상"
+                        placeholder="Pulse condition at Cun position"
                       />
                   </div>
                   <div>
-                      <label htmlFor="pulseGuan" className="block text-sm font-medium text-gray-600 mb-1">관 (Guan) - 중간</label>
+                      <label htmlFor="pulseGuan" className="block text-sm font-medium text-gray-600 mb-1">Guan (관) - middle</label>
                       <textarea
                         id="pulseGuan"
                         name="pulseGuan"
@@ -2104,11 +3959,11 @@ Instructions:
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, guan: e.target.value } }))}
                         rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="관 위치의 맥상"
+                        placeholder="Pulse condition at Guan position"
                       />
                   </div>
                   <div>
-                      <label htmlFor="pulseChi" className="block text-sm font-medium text-gray-600 mb-1">척 (Chi) - 손목 먼 쪽</label>
+                      <label htmlFor="pulseChi" className="block text-sm font-medium text-gray-600 mb-1">Chi (척) - far from the wrist</label>
                       <textarea
                         id="pulseChi"
                         name="pulseChi"
@@ -2116,12 +3971,22 @@ Instructions:
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, chi: e.target.value } }))}
                         rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="척 위치의 맥상"
+                        placeholder="Pulse condition at Chi position"
                       />
                   </div>
               </div>
               <div>
-                  <label htmlFor="pulseNotes" className="block text-sm font-medium text-gray-600 mb-1">General Pulse Notes</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="pulseNotes" className="block text-sm font-medium text-gray-600">General Pulse Notes</label>
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['pulse', 'notes'], formData.pulse.notes, 'pulseNotes')}
+                      disabled={!formData.pulse.notes || improvingFields.has('pulse.notes')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('pulse.notes') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  </div>
                   <textarea
                     id="pulseNotes"
                     name="pulseNotes"
@@ -2129,7 +3994,7 @@ Instructions:
                     onChange={handlePulseNotesChange}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="기타 맥진 관련 메모"
+                    placeholder="Other pulse diagnosis related notes"
                   />
               </div>
           </div>
@@ -2149,7 +4014,7 @@ Instructions:
                     options={acupunctureMethodOptions}
                     selected={formData.diagnosisAndTreatment.acupunctureMethod}
                     onChange={(val, checked) => handleDiagnosisArrayChange('acupunctureMethod', val as AcupunctureMethod, checked)}
-                    gridCols="grid-cols-2 md:grid-cols-3"
+                    gridCols="grid-cols-3"
                 />
                 {formData.diagnosisAndTreatment.acupunctureMethod.includes('Other') && (
                     <InputField 
@@ -2172,7 +4037,7 @@ Instructions:
                         return Array.isArray(raw) ? raw : (raw ? [raw] : []);
                     })()}
                     onChange={(val, checked) => handleOtherTreatmentArrayChange(val, checked)}
-                    gridCols="grid-cols-2 md:grid-cols-3"
+                    gridCols="grid-cols-4"
                 />
                 {(() => {
                     const treatments = Array.isArray(formData.diagnosisAndTreatment.selectedTreatment) 
@@ -2209,7 +4074,7 @@ Instructions:
             
             <div>
                 <label className="block text-lg font-medium text-gray-700 mb-2">Eight Principles</label>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-4 gap-x-8 gap-y-4">
                     <RadioGroup name="exteriorInterior" selectedValue={formData.diagnosisAndTreatment.eightPrinciples.exteriorInterior} onChange={handleEightPrincipleChange} options={[{value: 'Exterior', label: 'Exterior'}, {value: 'Interior', label: 'Interior'}]} />
                     <RadioGroup name="heatCold" selectedValue={formData.diagnosisAndTreatment.eightPrinciples.heatCold} onChange={handleEightPrincipleChange} options={[{value: 'Heat', label: 'Heat'}, {value: 'Cold', label: 'Cold'}]} />
                     <RadioGroup name="excessDeficient" selectedValue={formData.diagnosisAndTreatment.eightPrinciples.excessDeficient} onChange={handleEightPrincipleChange} options={[{value: 'Excess', label: 'Excess'}, {value: 'Deficient', label: 'Deficient'}]} />
@@ -2217,24 +4082,140 @@ Instructions:
                 </div>
             </div>
             
-             <InputField label="Etiology" id="etiology" name="etiology" value={formData.diagnosisAndTreatment.etiology} onChange={handleDiagnosisChange} />
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField label="TCM Diagnosis (Syndrome/Differentiation)" id="tcmDiagnosis" name="tcmDiagnosis" value={formData.diagnosisAndTreatment.tcmDiagnosis} onChange={handleDiagnosisChange} />
-                <InputField label="Treatment Principle" id="treatmentPrinciple" name="treatmentPrinciple" value={formData.diagnosisAndTreatment.treatmentPrinciple} onChange={handleDiagnosisChange} />
+             <div className="space-y-4">
+               <div>
+                 <div className="flex items-center justify-between mb-1">
+                   <label className="block text-sm font-medium text-gray-700">Etiology</label>
+                   <button
+                     type="button"
+                     onClick={() => handleImproveText(['diagnosisAndTreatment', 'etiology'], formData.diagnosisAndTreatment.etiology, 'etiology')}
+                     disabled={!formData.diagnosisAndTreatment.etiology || improvingFields.has('diagnosisAndTreatment.etiology')}
+                     className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                   >
+                     {improvingFields.has('diagnosisAndTreatment.etiology') ? 'Improving...' : '✎ Improve'}
+                   </button>
+                 </div>
+                 <textarea
+                   id="etiology"
+                   name="etiology"
+                   value={formData.diagnosisAndTreatment.etiology}
+                   onChange={handleDiagnosisChange}
+                   rows={2}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                 />
              </div>
              <div>
-                <label htmlFor="acupuncturePoints" className="block text-sm font-medium text-gray-700 mb-1">Acupuncture Points</label>
-                <textarea id="acupuncturePoints" name="acupuncturePoints" value={formData.diagnosisAndTreatment.acupuncturePoints} onChange={handleDiagnosisChange} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                <div className="flex items-center justify-between mb-1">
+                   <label className="block text-sm font-medium text-gray-700">TCM Diagnosis (Syndrome/Differentiation)</label>
+                   <button
+                     type="button"
+                     onClick={() => handleImproveText(['diagnosisAndTreatment', 'tcmDiagnosis'], formData.diagnosisAndTreatment.tcmDiagnosis, 'tcmDiagnosis')}
+                     disabled={!formData.diagnosisAndTreatment.tcmDiagnosis || improvingFields.has('diagnosisAndTreatment.tcmDiagnosis')}
+                     className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                   >
+                     {improvingFields.has('diagnosisAndTreatment.tcmDiagnosis') ? 'Improving...' : '✎ Improve'}
+                   </button>
+                 </div>
+                 <textarea
+                   id="tcmDiagnosis"
+                   name="tcmDiagnosis"
+                   value={formData.diagnosisAndTreatment.tcmDiagnosis}
+                   onChange={handleDiagnosisChange}
+                   rows={3}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                 />
+               </div>
+               <div>
+                 <div className="flex items-center justify-between mb-1">
+                   <label className="block text-sm font-medium text-gray-700">Treatment Principle</label>
+                   <button
+                     type="button"
+                     onClick={() => handleImproveText(['diagnosisAndTreatment', 'treatmentPrinciple'], formData.diagnosisAndTreatment.treatmentPrinciple, 'treatmentPrinciple')}
+                     disabled={!formData.diagnosisAndTreatment.treatmentPrinciple || improvingFields.has('diagnosisAndTreatment.treatmentPrinciple')}
+                     className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                   >
+                     {improvingFields.has('diagnosisAndTreatment.treatmentPrinciple') ? 'Improving...' : '✎ Improve'}
+                   </button>
+                 </div>
+                 <textarea
+                   id="treatmentPrinciple"
+                   name="treatmentPrinciple"
+                   value={formData.diagnosisAndTreatment.treatmentPrinciple}
+                   onChange={handleDiagnosisChange}
+                   rows={3}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                 />
+               </div>
+             </div>
+             <div>
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  <label htmlFor="acupuncturePoints" className="block text-sm font-medium text-gray-700">Acupuncture Points</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleImproveText(['diagnosisAndTreatment', 'acupuncturePoints'], formData.diagnosisAndTreatment.acupuncturePoints, 'acupuncturePoints')}
+                      disabled={!formData.diagnosisAndTreatment.acupuncturePoints || improvingFields.has('diagnosisAndTreatment.acupuncturePoints')}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('diagnosisAndTreatment.acupuncturePoints') ? 'Improving...' : '✎ Improve'}
+                    </button>
+                  {formData.diagnosisAndTreatment.acupunctureMethod.includes('Trigger Point') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const currentValue = formData.diagnosisAndTreatment.acupuncturePoints;
+                        if (!currentValue || currentValue.trim().length === 0) {
+                          alert('변환할 텍스트를 입력해주세요.');
+                          return;
+                        }
+                        const fieldKey = 'acupuncturePoints';
+                        setImprovingFields(prev => new Set(prev).add(fieldKey));
+                        try {
+                          const translatedText = await translateMuscleNames(currentValue);
+                          setFormData(prev => ({
+                            ...prev,
+                            diagnosisAndTreatment: {
+                              ...prev.diagnosisAndTreatment,
+                              acupuncturePoints: translatedText
+                            }
+                          }));
+                        } catch (error) {
+                          console.error('근육이름 변환 실패:', error);
+                        } finally {
+                          setImprovingFields(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(fieldKey);
+                            return newSet;
+                          });
+                        }
+                      }}
+                      disabled={!formData.diagnosisAndTreatment.acupuncturePoints || improvingFields.has('acupuncturePoints')}
+                      className="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {improvingFields.has('acupuncturePoints') ? 'Translating...' : '🔤 Translate Muscle Names'}
+                    </button>
+                  )}
+                </div>
+                </div>
+                <textarea id="acupuncturePoints" name="acupuncturePoints" value={formData.diagnosisAndTreatment.acupuncturePoints} onChange={handleDiagnosisChange} rows={8} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono whitespace-pre-wrap" placeholder="각 항목을 한 줄씩 입력하세요&#10;예:&#10;TCM Body: ST36, SP6, LI4, LV3&#10;Trigger Point: Upper trapezius, Levator scapulae"></textarea>
             </div>
             <div>
-                <label htmlFor="herbalTreatment" className="block text-sm font-medium text-gray-700 mb-1">Herbal Treatment</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="herbalTreatment" className="block text-sm font-medium text-gray-700">Herbal Treatment</label>
+                  <button
+                    type="button"
+                    onClick={() => handleImproveText(['diagnosisAndTreatment', 'herbalTreatment'], formData.diagnosisAndTreatment.herbalTreatment, 'herbalTreatment')}
+                    disabled={!formData.diagnosisAndTreatment.herbalTreatment || improvingFields.has('diagnosisAndTreatment.herbalTreatment')}
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {improvingFields.has('diagnosisAndTreatment.herbalTreatment') ? 'Improving...' : '✎ Improve'}
+                  </button>
+                </div>
                 <textarea id="herbalTreatment" name="herbalTreatment" value={formData.diagnosisAndTreatment.herbalTreatment} onChange={handleDiagnosisChange} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="grid grid-cols-3 gap-4">
                 <InputField label="ICD" id="icd" name="icd" value={formData.diagnosisAndTreatment.icd} onChange={handleDiagnosisChange} />
                 <InputField label="CPT" id="cpt" name="cpt" value={formData.diagnosisAndTreatment.cpt} onChange={handleDiagnosisChange} />
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InputField label="Therapist Name" id="therapistName" name="therapistName" value={formData.diagnosisAndTreatment.therapistName} onChange={handleDiagnosisChange} />
                 <InputField label="Lic #" id="therapistLicNo" name="therapistLicNo" value={formData.diagnosisAndTreatment.therapistLicNo} onChange={handleDiagnosisChange} />
              </div>
@@ -2242,20 +4223,12 @@ Instructions:
       </div>
 
 
-      <div className="flex justify-between items-center pt-8 mt-8 border-t">
-        <button 
-            type="button" 
-            onClick={handleBack} 
-            className="px-6 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors duration-200"
-        >
-          Back to List
-        </button>
-        <div className="flex items-center space-x-4">
+      <div className="flex justify-end items-center pt-8 mt-8 border-t sticky bottom-0 bg-white pb-4">
           <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isGeneratingHpi || isDiagnosing}>
             Save & View Chart
           </button>
-        </div>
       </div>
     </form>
+    </div>
   );
 };

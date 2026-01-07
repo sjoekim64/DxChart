@@ -1,30 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AuthWrapper } from './components/AuthWrapper';
-import { PatientForm } from './components/PatientForm.tsx';
-import { PrintableView } from './components/PrintableView.tsx';
-import { PatientList } from './components/PatientList.tsx';
-import { SOAPReport } from './components/SOAPReport';
+import { PatientForm } from './components/PatientForm';
+import { PrintableView } from './components/PrintableView';
+import { PatientList } from './components/PatientList';
 import { AdminRoute } from './components/AdminRoute';
 import { PDFUploader } from './components/PDFUploader';
+import { ProfileManagement } from './components/ProfileManagement';
 import { useAdminMode } from './hooks/useAdminMode';
-import type { PatientData } from './types.ts';
+import type { PatientData } from './types';
 import { database } from './lib/database';
-import { initializeSampleData, getNewPatientSample, getFollowUpPatientSample, initializeTestUser } from './lib/sampleData';
+import { initializeSampleData, getNewPatientSample, getFollowUpPatientSample, initializeTestUser, getNewPatientSample100106 } from './lib/sampleData';
 
 
 const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): PatientData => {
   // Base state with sensible defaults to speed up charting
   const baseState: PatientData = {
     chartType,
+    patientType: 'cash',
     clinicName: clinicInfo?.clinicName || '',
     clinicLogo: clinicInfo?.clinicLogo || '',
     fileNo: '', name: '', date: new Date().toISOString().split('T')[0],
     address: '', phone: '',
     occupation: '', dob: '', age: '', sex: 'F',
     heightFt: '', heightIn: '', weight: '',
-    temp: '', bpSystolic: '', bpDiastolic: '', heartRate: '', heartRhythm: '',
-    lungRate: '17', lungSound: '',
+    temp: '', bpSystolic: '', bpDiastolic: '', heartRate: '', heartRhythm: 'Normal',
+    lungRate: '17', lungSound: 'Clear',
     chiefComplaint: {
       selectedComplaints: [], otherComplaint: '', location: '', locationDetails: [], onsetValue: '', onsetUnit: '',
       provocation: [], provocationOther: '', palliation: [], palliationOther: '', quality: [], qualityOther: '',
@@ -75,6 +76,18 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
     respondToCare: {
         status: '',
         improvedDays: '',
+        painLevelBefore: '',
+        painLevelAfter: '',
+        painLevelCurrent: '',
+        canDriveWithoutPain: '',
+        canSitWithoutPain: '',
+        canSitDuration: '',
+        canStandWithoutPain: '',
+        canStandDuration: '',
+        canWalkWithoutPain: '',
+        canWalkDistance: '',
+        sleepQualityImprovement: '',
+        dailyActivitiesImprovement: '',
         notes: '',
     }
   };
@@ -143,11 +156,10 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
 const PatientChartApp: React.FC = () => {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [currentPatient, setCurrentPatient] = useState<PatientData | null>(null);
-  const [view, setView] = useState<'list' | 'form' | 'print' | 'soap'>('list');
+  const [view, setView] = useState<'list' | 'form' | 'print' | 'profile'>('list');
   const [formMode, setFormMode] = useState<'new' | 'edit'>('new');
   const [clinicInfo, setClinicInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSOAPReport, setShowSOAPReport] = useState(false);
   const [showPDFUploader, setShowPDFUploader] = useState(false);
 
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
@@ -158,11 +170,17 @@ const PatientChartApp: React.FC = () => {
   // 사용자 인증 상태에 따라 데이터 로드
   useEffect(() => {
     if (isAuthenticated && user) {
+      // 일반 사용자인 경우 admin 모드 강제 해제
+      if (user.id !== 'admin' && user.username !== 'admin' && isAdminMode) {
+        console.log('🔒 일반 사용자 로그인 - admin 모드 강제 해제');
+        clearAdminMode();
+      }
       loadUserData();
     } else if (!authLoading) {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user, authLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user, authLoading, isAdminMode]);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -246,30 +264,33 @@ const PatientChartApp: React.FC = () => {
         console.error("Failed to save clinic info:", error);
     }
     
-    // 환자 데이터 저장
+    // 환자 데이터 저장 - 항상 새로운 차트로 저장 (기존 차트는 덮어쓰지 않음)
     try {
-      await database.savePatientChart(user.id, data);
+      await database.savePatientChartAsNew(user.id, data);
       
-      // 로컬 상태 업데이트
-    const existingPatientIndex = patients.findIndex(p => p.fileNo === data.fileNo);
-    let updatedPatients;
-    if (existingPatientIndex > -1) {
-      updatedPatients = [...patients];
-      updatedPatients[existingPatientIndex] = data;
-    } else {
-      updatedPatients = [...patients, data];
-    }
-      setPatients(updatedPatients);
+      // 저장 후 모든 차트를 다시 로드하여 최신 상태 유지
+      const updatedCharts = await database.getPatientCharts(user.id);
+      const updatedPatientData = updatedCharts.map(chart => JSON.parse(chart.chartData));
+      setPatients(updatedPatientData);
     
-    setCurrentPatient(data);
-    setView('print');
+      setCurrentPatient(data);
+      setView('print');
     } catch (error) {
       console.error("Failed to save patient record:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to save patient record. Please try again.";
+      alert(`저장 실패: ${errorMessage}\n\n브라우저를 새로고침하여 데이터베이스를 업데이트한 후 다시 시도해주세요.`);
     }
   };
 
   const handleNewPatient = () => {
     setCurrentPatient(getNewPatientState('new', clinicInfo));
+    setFormMode('new');
+    setView('form');
+  }
+
+  const handleNewFollowUpFromScratch = () => {
+    // 새로운 follow-up 차트를 처음부터 작성
+    setCurrentPatient(getNewPatientState('follow-up', clinicInfo));
     setFormMode('new');
     setView('form');
   }
@@ -285,7 +306,7 @@ const PatientChartApp: React.FC = () => {
       );
       
       for (const chart of sampleCharts) {
-        await database.deletePatientChart(user.id, chart.id);
+        await database.deletePatientChartById(user.id, chart.id!);
       }
       
       // 환자 목록 새로고침
@@ -298,6 +319,55 @@ const PatientChartApp: React.FC = () => {
       console.error('샘플 데이터 제거 실패:', error);
     }
   }
+
+  const handleManageProfile = () => {
+    setView('profile');
+  };
+
+  const handleProfileUpdate = async () => {
+    // 프로필 업데이트 후 클리닉 정보 다시 로드
+    if (user) {
+      try {
+        const clinicData = await database.getClinicInfo(user.id);
+        if (clinicData) {
+          setClinicInfo(clinicData);
+        }
+      } catch (error) {
+        console.error('클리닉 정보 로드 실패:', error);
+      }
+    }
+    setView('list');
+  };
+
+  // 100106 샘플 데이터 생성 함수
+  const createSample100106 = async () => {
+    if (!user) return;
+    
+    try {
+      // 기존 100106 차트가 있는지 확인
+      const charts = await database.getPatientCharts(user.id);
+      const existing100106 = charts.some(chart => chart.fileNo === '100106');
+      
+      if (existing100106) {
+        if (!window.confirm('File No. 100106 already exists. Do you want to create another chart?')) {
+          return;
+        }
+      }
+      
+      const sample100106 = getNewPatientSample100106(clinicInfo);
+      await database.savePatientChartAsNew(user.id, sample100106);
+      
+      // 환자 목록 새로고침
+      const updatedCharts = await database.getPatientCharts(user.id);
+      const updatedPatientData = updatedCharts.map(chart => JSON.parse(chart.chartData));
+      setPatients(updatedPatientData);
+      
+      alert('Sample patient chart 100106 has been created successfully!');
+    } catch (error) {
+      console.error('샘플 데이터 생성 실패:', error);
+      alert('Failed to create sample data. Please try again.');
+    }
+  };
   
   const handleNewFollowUpChart = async (selectedPatient: PatientData) => {
     if (!user) return;
@@ -312,60 +382,59 @@ const PatientChartApp: React.FC = () => {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       
       if (latestChart) {
-        // 최근 차트 정보를 기반으로 새로운 follow-up 차트 생성
+        // 마지막 방문 차트의 데이터를 그대로 유지하되, 날짜만 오늘로 변경하고 chartType을 follow-up으로 변경
+        // 재방문 시에는 환자의 변경사항이 거의 없으므로 대부분의 데이터를 유지
         const followUpChart: PatientData = {
           ...latestChart,
           chartType: 'follow-up',
           date: new Date().toISOString().split('T')[0], // 오늘 날짜로 변경
-          // Chief Complaint는 초기화 (새로운 방문이므로)
+          // Chief Complaint는 유지하되, remark와 presentIllness만 초기화 (새로운 방문이므로)
           chiefComplaint: {
             ...latestChart.chiefComplaint,
-            remark: '', // Follow-up Notes는 비워둠
+            remark: '', // Follow-up Notes는 새로 작성
             presentIllness: '', // HPI는 새로 작성
           },
-          // Respond to Care는 초기화
+          // Respond to Care는 초기화 (새로운 방문이므로 새로운 응답 필요)
           respondToCare: {
             status: '',
             improvedDays: '',
+            improvedPercent: '',
+            treatmentAfterDays: '',
+            painLevelBefore: '',
+            painLevelAfter: '',
+            painLevelCurrent: '',
+            canDriveWithoutPain: '',
+            canSitWithoutPain: '',
+            canSitDuration: '',
+            canSitMaxTime: '',
+            canStandWithoutPain: '',
+            canStandDuration: '',
+            canWalkWithoutPain: '',
+            canWalkDistance: '',
+            canWalkMaxTime: '',
+            canDriveMaxTime: '',
+            houseworkDiscomfort: '',
+            liftingDiscomfort: '',
+            sleepQualityDiscomfort: '',
+            commuteDiscomfort: '',
+            avoidedActivitiesCount: '',
+            painMedicationFrequency: '',
+            medicationChange: '',
+            recoveryPercent: '',
+            sleepQualityImprovement: '',
+            dailyActivitiesImprovement: '',
             notes: '',
           },
-          // 진단 및 치료는 초기화 (새로운 평가 필요)
+          // 진단 및 치료 - Eight Principles는 초기화 (새로 진단), 나머지는 유지
           diagnosisAndTreatment: {
             ...latestChart.diagnosisAndTreatment,
             eightPrinciples: { exteriorInterior: '', heatCold: '', excessDeficient: '', yangYin: '' },
-            etiology: '',
-            tcmDiagnosis: '',
-            treatmentPrinciple: '',
-            acupunctureMethod: [],
-            acupunctureMethodOther: '',
-            acupuncturePoints: '',
-            herbalTreatment: '',
-            selectedTreatment: [],
-            otherTreatmentText: '',
-            icd: '',
+            // acupunctureMethod, acupuncturePoints, herbalTreatment 등은 유지하되 필요시 수정 가능
             cpt: '99212, 97813, 97814', // Follow-up CPT 코드
           },
-          // Vital signs는 초기화 (새로 측정)
-          temp: '',
-          bpSystolic: '',
-          bpDiastolic: '',
-          heartRate: '',
-          heartRhythm: '',
-          lungRate: latestChart.lungRate || '17',
-          lungSound: '',
-          // Review of Systems는 이전 차트 정보 유지 (크게 변하지 않으므로)
-          // Tongue와 Pulse는 초기화 (새로 진단)
-          tongue: {
-            body: { color: '', colorModifiers: [], shape: '', shapeModifiers: [], locations: [], locationComments: '' },
-            coating: { color: '', quality: [], notes: '' },
-          },
-          pulse: {
-            overall: [],
-            notes: '',
-            cun: '',
-            guan: '',
-            chi: '',
-          },
+          // Vital signs는 유지 (변경이 있을 수 있으므로 수정 가능)
+          // Review of Systems는 유지 (크게 변하지 않으므로)
+          // Tongue와 Pulse는 유지 (변경이 있을 수 있으므로 수정 가능)
         };
         
         setCurrentPatient(followUpChart);
@@ -432,16 +501,36 @@ const PatientChartApp: React.FC = () => {
     setView('form');
   }
 
-  const handleDeletePatient = async (fileNo: string) => {
+  const handleViewPatient = (patient: PatientData) => {
+    // 차트를 읽기 전용으로 보기만 함
+    setCurrentPatient(patient);
+    setView('print');
+  }
+
+  const handleSelectPatientChart = async (fileNo: string): Promise<PatientData[]> => {
+    if (!user) return [];
+    try {
+      const charts = await database.getPatientChartsByFileNo(user.id, fileNo);
+      return charts.map(chart => JSON.parse(chart.chartData) as PatientData);
+    } catch (error) {
+      console.error('차트 로드 실패:', error);
+      return [];
+    }
+  }
+
+  const handleDeletePatient = async (fileNo: string, date: string) => {
     if (!user) return;
     
-    if (window.confirm(`Are you sure you want to delete patient record ${fileNo}? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete the chart for File No. ${fileNo} dated ${date}? This action cannot be undone.`)) {
       try {
-        await database.deletePatientChart(user.id, fileNo);
-        const updatedPatients = patients.filter(p => p.fileNo !== fileNo);
-        setPatients(updatedPatients);
+        await database.deletePatientChart(user.id, fileNo, date);
+        // 삭제 후 데이터 다시 로드
+        const updatedCharts = await database.getPatientCharts(user.id);
+        const updatedPatientData = updatedCharts.map(chart => JSON.parse(chart.chartData));
+        setPatients(updatedPatientData);
       } catch (error) {
         console.error("Failed to delete patient record:", error);
+        alert("Failed to delete patient record. Please try again.");
       }
     }
   }
@@ -455,15 +544,6 @@ const PatientChartApp: React.FC = () => {
     setView('form');
   };
 
-  const handleSOAPReport = (patient: PatientData) => {
-    setCurrentPatient(patient);
-    setShowSOAPReport(true);
-  };
-
-  const handleCloseSOAPReport = () => {
-    setShowSOAPReport(false);
-    setCurrentPatient(null);
-  };
 
   const renderView = () => {
     switch (view) {
@@ -476,6 +556,8 @@ const PatientChartApp: React.FC = () => {
                />;
       case 'print':
         return <PrintableView data={currentPatient!} onEdit={handleEdit} onGoToList={handleGoToList} />;
+      case 'profile':
+        return <ProfileManagement onBack={handleGoToList} onUpdate={handleProfileUpdate} />;
       case 'list':
       default:
         return <PatientList 
@@ -484,9 +566,11 @@ const PatientChartApp: React.FC = () => {
                     onNewPatient={handleNewPatient} 
                     onDeletePatient={handleDeletePatient} 
                     onStartFollowUp={handleNewFollowUpChart}
+                    onStartFollowUpFromScratch={handleNewFollowUpFromScratch}
                     onStartFollowUpFromPDF={handleStartFollowUpFromPDF}
-                    onSOAPReport={handleSOAPReport}
                     onClearSampleData={clearSampleData}
+                    onViewPatient={handleViewPatient}
+                    onCreateSample100106={createSample100106}
                 />;
     }
   };
@@ -507,9 +591,14 @@ const PatientChartApp: React.FC = () => {
     return <AuthWrapper />;
   }
 
-  // 관리자 대시보드 모드
-  if (isAuthenticated && isAdminMode) {
+  // 관리자 대시보드 모드 (admin 사용자만)
+  if (isAuthenticated && isAdminMode && user && user.id === 'admin' && user.username === 'admin') {
     return <AdminRoute isAuthenticated={isAuthenticated} isAdminMode={isAdminMode} />;
+  }
+  
+  // 일반 사용자인데 admin 모드가 활성화되어 있으면 강제 해제
+  if (isAuthenticated && user && user.id !== 'admin' && user.username !== 'admin' && isAdminMode) {
+    clearAdminMode();
   }
 
   return (
@@ -521,18 +610,26 @@ const PatientChartApp: React.FC = () => {
         <p className="text-slate-600 mt-2">A modern solution for digital patient records.</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-600">환영합니다, {user?.therapistName}님</p>
+            <p className="text-sm text-gray-600">Welcome, {user?.therapistName}</p>
             <p className="text-xs text-gray-500">{user?.clinicName}</p>
-            <button
-              onClick={() => {
-                clearAdminMode();
-                localStorage.removeItem('adminRedirected');
-                logout();
-              }}
-              className="mt-2 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              로그아웃
-            </button>
+            <div className="flex gap-2 mt-2 justify-end">
+              <button
+                onClick={handleManageProfile}
+                className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                Manage Profile
+              </button>
+              <button
+                onClick={() => {
+                  clearAdminMode();
+                  localStorage.removeItem('adminRedirected');
+                  logout();
+                }}
+                className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -541,13 +638,6 @@ const PatientChartApp: React.FC = () => {
         {renderView()}
       </main>
       
-      {/* SOAP Report Modal */}
-      {showSOAPReport && currentPatient && (
-        <SOAPReport 
-          data={currentPatient} 
-          onClose={handleCloseSOAPReport} 
-        />
-      )}
 
       {/* PDF Uploader Modal */}
       {showPDFUploader && (

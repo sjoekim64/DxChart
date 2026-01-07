@@ -8,6 +8,7 @@ interface AuthContextType extends AuthState {
   register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => void;
   verifyToken: () => Promise<boolean>;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +20,8 @@ type AuthAction =
   | { type: 'LOGOUT' }
   | { type: 'VERIFY_START' }
   | { type: 'VERIFY_SUCCESS'; payload: { user: User; token: string } }
-  | { type: 'VERIFY_FAILURE' };
+  | { type: 'VERIFY_FAILURE' }
+  | { type: 'UPDATE_USER'; payload: { user: User } };
 
 const initialState: AuthState = {
   user: null,
@@ -62,6 +64,11 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: false,
         isLoading: false,
       };
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        user: action.payload.user,
+      };
     default:
       return state;
   }
@@ -76,6 +83,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       console.log('🔐 로그인 시도:', credentials.username);
       
+      // Admin 계정 특별 처리 (데이터베이스 체크 우회)
+      const isAdminAccount = credentials.username.toLowerCase() === 'admin' && 
+                            credentials.password === 'joe007007';
+      
+      if (isAdminAccount) {
+        console.log('🔐 Admin 계정으로 로그인 - 관리자 대시보드로 이동');
+        
+        // 가상의 admin 사용자 객체 생성
+        const adminUser: User = {
+          id: 'admin',
+          username: 'admin',
+          passwordHash: '',
+          clinicName: 'Admin Dashboard',
+          therapistName: 'Administrator',
+          therapistLicenseNo: 'ADMIN',
+          createdAt: new Date().toISOString(),
+          isApproved: true,
+        };
+        
+        const adminToken = 'admin_token_' + Date.now();
+        localStorage.setItem('auth_token', adminToken);
+        
+        dispatch({ 
+          type: 'LOGIN_SUCCESS', 
+          payload: { 
+            user: adminUser, 
+            token: adminToken 
+          } 
+        });
+        
+        // 관리자 대시보드로 리다이렉트 (페이지 새로고침 없이)
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('admin', 'true');
+        window.history.replaceState({}, '', currentUrl.toString());
+        
+        // useAdminMode 훅이 URL 변경을 감지하도록 짧은 지연 후 상태 업데이트
+        // 페이지 새로고침 없이 관리자 모드 활성화
+        setTimeout(() => {
+          // URL 변경 이벤트 트리거
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }, 50);
+        
+        return { success: true, data: { user: adminUser, token: adminToken } };
+      }
+      
+      // 일반 사용자 로그인 처리
       // 데이터베이스 초기화 보장
       console.log('🗄️ 데이터베이스 초기화 확인 중...');
       await database.initialize();
@@ -92,11 +145,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } 
       });
 
-      // URL 파라미터 유지 (관리자 대시보드 접근용)
+      // 일반 사용자 로그인 시 admin 파라미터 제거
       const currentUrl = new URL(window.location.href);
       if (currentUrl.searchParams.get('admin') === 'true') {
-        console.log('🔗 관리자 모드 URL 파라미터 유지');
-        // URL 파라미터가 이미 있으므로 추가 작업 불필요
+        console.log('🔗 일반 사용자 로그인 - admin 파라미터 제거');
+        currentUrl.searchParams.delete('admin');
+        window.history.replaceState({}, '', currentUrl.toString());
+        // URL 변경 이벤트 트리거하여 admin 모드 해제
+        window.dispatchEvent(new PopStateEvent('popstate'));
       }
 
       // 로그인 성공 시 이메일 알림 발송 (비동기로 처리하여 로그인 속도에 영향 없음)
@@ -213,6 +269,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const user = await database.verifyToken(state.token);
       
+      // Admin 사용자인 경우 URL에 admin 파라미터 추가
+      if (user.id === 'admin' && user.username === 'admin') {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('admin') !== 'true') {
+          currentUrl.searchParams.set('admin', 'true');
+          window.history.replaceState({}, '', currentUrl.toString());
+          // URL 변경 이벤트 트리거하여 admin 모드 활성화
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }
+      } else {
+        // 일반 사용자인 경우 admin 파라미터 제거
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('admin') === 'true') {
+          currentUrl.searchParams.delete('admin');
+          window.history.replaceState({}, '', currentUrl.toString());
+          // URL 변경 이벤트 트리거하여 admin 모드 해제
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }
+      }
+      
       dispatch({ 
         type: 'VERIFY_SUCCESS', 
         payload: { 
@@ -251,12 +327,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initialize();
   }, []);
 
+  const updateUser = (user: User) => {
+    dispatch({ type: 'UPDATE_USER', payload: { user } });
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
     register,
     logout,
     verifyToken,
+    updateUser,
   };
 
   return (

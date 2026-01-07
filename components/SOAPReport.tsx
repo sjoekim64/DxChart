@@ -77,7 +77,25 @@ export const SOAPReport: React.FC<SOAPReportProps> = ({ data, onClose }) => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ko-KR', {
+    // 날짜 문자열이 MM/DD/YYYY 형식인 경우 직접 파싱
+    if (dateString.includes('/')) {
+      const [month, day, year] = dateString.split('/');
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
+    }
+    // YYYY-MM-DD 형식인 경우
+    if (dateString.includes('-')) {
+      const date = new Date(dateString + 'T00:00:00'); // 타임존 문제 방지
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    // 기본값: 영어 형식으로 표시
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -336,6 +354,18 @@ export const SOAPReport: React.FC<SOAPReportProps> = ({ data, onClose }) => {
                     <strong>Treatment Response:</strong> 
                     {hipaaData.respondToCare.status && ` Current status: ${hipaaData.respondToCare.status}.`}
                     {hipaaData.respondToCare.improvedDays && ` Patient has shown improvement over ${hipaaData.respondToCare.improvedDays} days of treatment.`}
+                    {hipaaData.respondToCare.painLevelBefore && hipaaData.respondToCare.painLevelCurrent && 
+                      ` Pain level decreased from ${hipaaData.respondToCare.painLevelBefore}/10 to ${hipaaData.respondToCare.painLevelCurrent}/10.`}
+                    {(hipaaData.respondToCare.canDriveWithoutPain || hipaaData.respondToCare.canSitWithoutPain || 
+                      hipaaData.respondToCare.canStandWithoutPain || hipaaData.respondToCare.canWalkWithoutPain) && 
+                      ` Functional improvements: ` + [
+                        hipaaData.respondToCare.canDriveWithoutPain && `Driving: ${hipaaData.respondToCare.canDriveWithoutPain}`,
+                        hipaaData.respondToCare.canSitWithoutPain && `Sitting: ${hipaaData.respondToCare.canSitWithoutPain}${hipaaData.respondToCare.canSitDuration ? ` (${hipaaData.respondToCare.canSitDuration})` : ''}`,
+                        hipaaData.respondToCare.canStandWithoutPain && `Standing: ${hipaaData.respondToCare.canStandWithoutPain}${hipaaData.respondToCare.canStandDuration ? ` (${hipaaData.respondToCare.canStandDuration})` : ''}`,
+                        hipaaData.respondToCare.canWalkWithoutPain && `Walking: ${hipaaData.respondToCare.canWalkWithoutPain}${hipaaData.respondToCare.canWalkDistance ? ` (${hipaaData.respondToCare.canWalkDistance})` : ''}`
+                      ].filter(Boolean).join(', ') + '.'}
+                    {hipaaData.respondToCare.sleepQualityImprovement && ` Sleep quality: ${hipaaData.respondToCare.sleepQualityImprovement}.`}
+                    {hipaaData.respondToCare.dailyActivitiesImprovement && ` Daily activities: ${hipaaData.respondToCare.dailyActivitiesImprovement}.`}
                     {hipaaData.respondToCare.notes && ` ${hipaaData.respondToCare.notes}`}
                   </p>
                   
@@ -349,7 +379,7 @@ export const SOAPReport: React.FC<SOAPReportProps> = ({ data, onClose }) => {
             {/* Footer */}
             <div className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
               <p>This report contains no personally identifiable information in compliance with HIPAA regulations.</p>
-              <p>Generated on {new Date().toLocaleDateString('ko-KR')} at {new Date().toLocaleTimeString('ko-KR')}</p>
+              <p>Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           </div>
         </div>

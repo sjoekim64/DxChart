@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from 'openai';
 import type { PatientData } from '../types.ts';
 
 interface PDFUploaderProps {
@@ -11,6 +11,8 @@ interface PDFUploaderProps {
 export const PDFUploader: React.FC<PDFUploaderProps> = ({ onExtractComplete, onCancel, clinicInfo }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastPdfText, setLastPdfText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // PDF.js를 동적으로 로드
@@ -50,14 +52,21 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onExtractComplete, onC
     return fullText;
   };
 
-  // AI를 사용해서 PDF 텍스트에서 환자 정보 추출
-  const extractPatientDataFromText = async (pdfText: string): Promise<PatientData> => {
-    const apiKey = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  // AI를 사용해서 PDF 텍스트에서 환자 정보 추출 (재시도 로직 포함)
+  const extractPatientDataFromText = async (pdfText: string, retryCount = 0): Promise<PatientData> => {
+    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
+      const errorMsg = 'OPENAI_API_KEY가 설정되지 않았습니다.\n\n' +
+        '해결 방법:\n' +
+        '1. 프로젝트 루트에 .env.local 파일을 생성하세요.\n' +
+        '2. 다음 내용을 추가하세요:\n' +
+        '   OPENAI_API_KEY=sk-proj-your-api-key-here\n' +
+        '   VITE_OPENAI_API_KEY=sk-proj-your-api-key-here\n' +
+        '3. 개발 서버를 재시작하세요 (npm run dev)';
+      throw new Error(errorMsg);
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
     
     const prompt = `다음은 환자 차트 PDF에서 추출한 텍스트입니다. 이 텍스트에서 환자 정보를 추출하여 JSON 형식으로 반환해주세요.
 
@@ -172,22 +181,75 @@ ${pdfText}
 
 중요: JSON만 반환하고 다른 텍스트는 포함하지 마세요.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
+    const maxRetries = 3;
+    const baseDelay = 2000; // 2초
 
-    const jsonText = response.text.trim();
-    const patientData = JSON.parse(jsonText) as PatientData;
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
+      });
+
+      const jsonText = response.choices[0]?.message?.content?.trim() || '';
+      const patientData = JSON.parse(jsonText) as PatientData;
     
     // 필수 필드 설정
     patientData.chartType = 'follow-up';
     patientData.clinicName = clinicInfo?.clinicName || '';
     patientData.clinicLogo = clinicInfo?.clinicLogo || '';
     patientData.date = patientData.date || new Date().toISOString().split('T')[0];
+    
+    // Chief Complaint 필드 초기화 (배열 필드가 없을 경우 빈 배열로 설정)
+    if (!patientData.chiefComplaint) {
+      patientData.chiefComplaint = {
+        selectedComplaints: [],
+        otherComplaint: '',
+        location: '',
+        locationDetails: [],
+        onsetValue: '',
+        onsetUnit: '',
+        provocation: [],
+        provocationOther: '',
+        palliation: [],
+        palliationOther: '',
+        quality: [],
+        qualityOther: '',
+        regionRadiation: '',
+        severityScore: '',
+        severityDescription: '',
+        frequency: '',
+        timing: '',
+        possibleCause: [],
+        possibleCauseOther: '',
+        remark: '',
+        presentIllness: '',
+        westernMedicalDiagnosis: ''
+      };
+    } else {
+      // quality 필드가 배열이 아닌 경우 배열로 변환
+      if (!Array.isArray(patientData.chiefComplaint.quality)) {
+        patientData.chiefComplaint.quality = patientData.chiefComplaint.quality 
+          ? [patientData.chiefComplaint.quality as any].filter(Boolean)
+          : [];
+      }
+      // 다른 배열 필드들도 확인
+      if (!Array.isArray(patientData.chiefComplaint.selectedComplaints)) {
+        patientData.chiefComplaint.selectedComplaints = [];
+      }
+      if (!Array.isArray(patientData.chiefComplaint.locationDetails)) {
+        patientData.chiefComplaint.locationDetails = [];
+      }
+      if (!Array.isArray(patientData.chiefComplaint.provocation)) {
+        patientData.chiefComplaint.provocation = [];
+      }
+      if (!Array.isArray(patientData.chiefComplaint.palliation)) {
+        patientData.chiefComplaint.palliation = [];
+      }
+      if (!Array.isArray(patientData.chiefComplaint.possibleCause)) {
+        patientData.chiefComplaint.possibleCause = [];
+      }
+    }
     
     // 치료사 정보 설정
     if (patientData.diagnosisAndTreatment) {
@@ -196,6 +258,24 @@ ${pdfText}
     }
     
     return patientData;
+    } catch (error: any) {
+      // 503 오류 또는 서버 과부하 오류인 경우 재시도
+      const isRetryableError = error?.error?.code === 503 || 
+                               error?.error?.status === 'UNAVAILABLE' ||
+                               error?.message?.includes('overloaded') ||
+                               error?.message?.includes('503');
+      
+      if (isRetryableError && retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount); // 지수 백오프: 2초, 4초, 8초
+        console.log(`⚠️ API 과부하 오류 발생. ${delay / 1000}초 후 재시도... (${retryCount + 1}/${maxRetries})`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return extractPatientDataFromText(pdfText, retryCount + 1);
+      }
+      
+      // 재시도 불가능한 오류 또는 최대 재시도 횟수 초과
+      throw error;
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,15 +293,56 @@ ${pdfText}
     try {
       // PDF에서 텍스트 추출
       const pdfText = await extractTextFromPDF(file);
+      setLastPdfText(pdfText);
+      setRetryCount(0);
       
       // AI로 환자 정보 추출
       const patientData = await extractPatientDataFromText(pdfText);
       
       // 완료 콜백 호출
       onExtractComplete(patientData);
+      setError(null);
     } catch (err: any) {
       console.error('PDF 처리 오류:', err);
-      setError(err.message || 'PDF 처리 중 오류가 발생했습니다.');
+      
+      // 에러 메시지 개선
+      let errorMessage = 'PDF 처리 중 오류가 발생했습니다.';
+      if (err?.error?.code === 503 || err?.error?.status === 'UNAVAILABLE') {
+        errorMessage = 'AI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.';
+      } else if (err?.message) {
+        errorMessage = err.message;
+        // 환경 변수 오류인 경우 더 자세한 안내 제공
+        if (errorMessage.includes('OPENAI_API_KEY')) {
+          errorMessage += '\n\n해결 방법:\n1. 프로젝트 루트에 .env.local 파일 생성\n2. OPENAI_API_KEY와 VITE_OPENAI_API_KEY 설정\n3. 개발 서버 재시작 (npm run dev)';
+        }
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (!lastPdfText) return;
+    
+    setIsProcessing(true);
+    setError(null);
+    setRetryCount(prev => prev + 1);
+    
+    try {
+      const patientData = await extractPatientDataFromText(lastPdfText);
+      onExtractComplete(patientData);
+      setError(null);
+    } catch (err: any) {
+      console.error('PDF 재시도 오류:', err);
+      let errorMessage = 'PDF 처리 중 오류가 발생했습니다.';
+      if (err?.error?.code === 503 || err?.error?.status === 'UNAVAILABLE') {
+        errorMessage = 'AI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.';
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -234,7 +355,16 @@ ${pdfText}
         
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+            <p className="mb-2">{error}</p>
+            {lastPdfText && (
+              <button
+                onClick={handleRetry}
+                disabled={isProcessing}
+                className="text-sm underline hover:no-underline disabled:opacity-50"
+              >
+                다시 시도
+              </button>
+            )}
           </div>
         )}
 

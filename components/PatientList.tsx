@@ -7,20 +7,29 @@ interface PatientListProps {
   onSelectPatient: (patient: PatientData) => void;
   onNewPatient: () => void;
   onStartFollowUp: (selectedPatient: PatientData) => void;
+  onStartFollowUpFromScratch: () => void;
   onStartFollowUpFromPDF: () => void;
-  onDeletePatient: (fileNo: string) => void;
-  onSOAPReport: (patient: PatientData) => void;
+  onDeletePatient: (fileNo: string, date: string) => void;
   onClearSampleData?: () => void;
+  onViewPatient?: (patient: PatientData) => void;
 }
 
-export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromPDF, onDeletePatient, onSOAPReport, onClearSampleData }) => {
+export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromScratch, onStartFollowUpFromPDF, onDeletePatient, onClearSampleData, onViewPatient, onCreateSample100106 }) => {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const patientsPerPage = 15;
+
+  const formatName = (name: string) => {
+    const parts = name?.trim().split(/\s+/).filter(Boolean) || [];
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].toUpperCase();
+    const last = parts.pop() as string;
+    const first = parts.join(' ');
+    return `${last.toUpperCase()}, ${first}`;
+  };
 
   const handleStartFollowUp = () => {
-    if (patients.length === 0) {
-      alert('환자 데이터가 없습니다. 먼저 신규 환자를 등록해주세요.');
-      return;
-    }
     setShowFollowUpModal(true);
   };
 
@@ -29,19 +38,43 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
     onStartFollowUp(patient);
   };
 
-  // fileNo별로 그룹화하여 각 환자의 최신 차트만 표시
-  const uniquePatients = patients.reduce((acc, patient) => {
-    const existing = acc.find(p => p.fileNo === patient.fileNo);
-    if (!existing || new Date(patient.date) > new Date(existing.date)) {
-      if (existing) {
-        const index = acc.indexOf(existing);
-        acc[index] = patient;
-      } else {
-        acc.push(patient);
-      }
+  const handleViewClick = (patient: PatientData) => {
+    // 원래 차트를 그대로 보기만 함 (수정 불가)
+    if (onViewPatient) {
+      onViewPatient(patient);
+    } else {
+      onSelectPatient(patient);
     }
-    return acc;
-  }, [] as PatientData[]);
+  };
+
+  const handleEditClick = (patient: PatientData) => {
+    // 해당 차트를 기반으로 새로운 Follow-up 차트 생성
+    // 원래 차트는 그대로 두고, 새로운 Follow-up 차트로 열림
+    onStartFollowUp(patient);
+  };
+
+  // 모든 차트를 표시 (같은 환자가 여러 번 방문하면 여러 개 표시)
+  // 검색 및 정렬 적용
+  const filteredPatients = patients
+    .filter((patient) => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+      const fileMatch = patient.fileNo?.toLowerCase().includes(query);
+      const rawName = (patient.name || '').toLowerCase();
+      const formattedName = formatName(patient.name || '').toLowerCase();
+      return fileMatch || rawName.includes(query) || formattedName.includes(query);
+    })
+    .sort((a, b) => {
+      // 먼저 fileNo로 정렬, 그 다음 날짜로 정렬 (최신순)
+      const fileNoCompare = (formatName(a.name || a.fileNo) || a.fileNo).localeCompare(formatName(b.name || b.fileNo) || b.fileNo);
+      if (fileNoCompare !== 0) return fileNoCompare;
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / patientsPerPage) || 1);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * patientsPerPage;
+  const paginatedPatients = filteredPatients.slice(startIndex, startIndex + patientsPerPage);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl mx-auto">
@@ -60,18 +93,12 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
           >
             Create Follow-up Chart
           </button>
-          <button
-            onClick={onStartFollowUpFromPDF}
-            className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
-          >
-            Load from PDF
-          </button>
-          {onClearSampleData && (
+          {onCreateSample100106 && (
             <button
-              onClick={onClearSampleData}
-              className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+              onClick={onCreateSample100106}
+              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
             >
-              Clear Sample Data
+              Create Sample 100106
             </button>
           )}
         </div>
@@ -80,48 +107,106 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
       {patients.length === 0 ? (
         <p className="text-center text-gray-500 py-8">No patient records found. Click "Add New Patient" to get started.</p>
       ) : (
-        <ul className="divide-y divide-gray-200">
-          {uniquePatients.sort((a, b) => (a.name || a.fileNo).localeCompare(b.name || b.fileNo)).map((patient) => (
-            <li key={patient.fileNo} className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between">
-              <div className="mb-4 sm:mb-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-lg font-medium text-indigo-600">{patient.name || `Patient (${patient.fileNo})`}</p>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    patient.chartType === 'new' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {patient.chartType === 'new' ? '신규환자' : '재방문환자'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500">File No: {patient.fileNo} | DOB: {patient.dob || 'N/A'}</p>
-              </div>
-              <div className="flex-shrink-0 flex space-x-2">
-                <button
-                  onClick={() => onSelectPatient(patient)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm"
-                >
-                  View / Edit
-                </button>
-                <button
-                  onClick={() => onSOAPReport(patient)}
-                  className="px-4 py-2 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm"
-                >
-                  SOAP Report
-                </button>
-                <button
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      onDeletePatient(patient.fileNo);
-                  }}
-                  className="px-4 py-2 bg-red-100 text-red-700 font-semibold rounded-lg hover:bg-red-200 transition-colors duration-200 text-sm"
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto">
+          {/* Search bar */}
+          <div className="flex justify-between items-center mb-3 gap-2 flex-wrap">
+            <label className="text-sm text-gray-700">
+              Search by File No. or Name:
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              placeholder="e.g., 0001, KIM, JOHN"
+            />
+          </div>
+          <div className="grid grid-cols-[1.2fr_2fr_1fr_1fr_1fr_1fr] text-sm font-semibold text-gray-700 border-b pb-2 mb-2">
+            <span>File No.</span>
+            <span>Last, First</span>
+            <span>Type</span>
+            <span>Visiting Date</span>
+            <span>View</span>
+            <span>Edit</span>
+            <span>Delete</span>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {paginatedPatients.map((patient, index) => {
+                const nameFormatted = formatName(patient.name || '') || `PATIENT ${patient.fileNo}`;
+                // 같은 fileNo와 date 조합으로 고유 키 생성
+                const uniqueKey = `${patient.fileNo}-${patient.date}-${index}`;
+                return (
+                  <div key={uniqueKey} className="grid grid-cols-[1.2fr_2fr_1fr_1fr_1fr_1fr_1fr] items-center py-3 text-sm">
+                    <span className="font-medium text-indigo-700">{patient.fileNo}</span>
+                    <span className="truncate">{nameFormatted}</span>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full w-fit ${
+                      patient.chartType === 'new' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {patient.chartType === 'new' ? 'New' : 'Follow-up'}
+                    </span>
+                    <span>{patient.date || 'N/A'}</span>
+                    <button
+                      onClick={() => handleViewClick(patient)}
+                      className="px-3 py-1 bg-blue-200 text-blue-800 font-semibold rounded-lg hover:bg-blue-300 transition-colors duration-200 text-xs"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => handleEditClick(patient)}
+                      className="px-3 py-1 bg-teal-200 text-teal-800 font-semibold rounded-lg hover:bg-teal-300 transition-colors duration-200 text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          // 특정 차트를 삭제하기 위해 fileNo와 date를 모두 전달
+                          onDeletePatient(patient.fileNo, patient.date);
+                      }}
+                      className="px-3 py-1 bg-red-100 text-red-700 font-semibold rounded-lg hover:bg-red-200 transition-colors duration-200 text-xs"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                );
+              })}
+          </div>
+          {/* Pagination controls */}
+          <div className="flex justify-between items-center mt-4 text-sm text-gray-700">
+            <span>
+              Page {safeCurrentPage} of {totalPages} (Total: {filteredPatients.length})
+            </span>
+            <div className="space-x-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={safeCurrentPage === 1}
+                className={`px-3 py-1 rounded-md border text-xs ${
+                  safeCurrentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className={`px-3 py-1 rounded-md border text-xs ${
+                  safeCurrentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Follow-up 환자 선택 모달 */}
@@ -129,15 +214,43 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b">
-              <h3 className="text-xl font-semibold text-gray-800">Follow-up 차트를 작성할 환자를 선택하세요</h3>
-              <p className="text-sm text-gray-600 mt-1">선택한 환자의 최근 차트 정보가 기본값으로 불러와집니다.</p>
+              <h3 className="text-xl font-semibold text-gray-800">Follow-up 차트 작성 방법 선택</h3>
+              <p className="text-sm text-gray-600 mt-1">기존 환자를 선택하거나 새로운 follow-up 차트를 처음부터 작성할 수 있습니다.</p>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {uniquePatients.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">환자 데이터가 없습니다.</p>
+              <div className="mb-6 pb-6 border-b">
+                <button
+                  onClick={() => {
+                    setShowFollowUpModal(false);
+                    onStartFollowUpFromScratch();
+                  }}
+                  className="w-full px-6 py-4 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
+                >
+                  새로운 Follow-up 차트 작성 (처음부터)
+                </button>
+                <p className="text-xs text-gray-500 mt-2 text-center">환자 데이터가 없어도 처음부터 follow-up 차트를 작성할 수 있습니다.</p>
+              </div>
+              {patients.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">기존 환자 데이터가 없습니다. 위의 버튼을 사용하여 새로운 follow-up 차트를 작성하세요.</p>
               ) : (
+                <>
+                  <h4 className="text-lg font-medium text-gray-700 mb-4">기존 환자 선택</h4>
                 <ul className="divide-y divide-gray-200">
-                  {uniquePatients.sort((a, b) => (a.name || a.fileNo).localeCompare(b.name || b.fileNo)).map((patient) => (
+                  {patients
+                    .reduce((acc, patient) => {
+                      // fileNo별로 그룹화하여 각 환자의 최신 차트만 표시 (모달에서는)
+                      const existing = acc.find(p => p.fileNo === patient.fileNo);
+                      if (!existing || new Date(patient.date) > new Date(existing.date)) {
+                        if (existing) {
+                          const index = acc.indexOf(existing);
+                          acc[index] = patient;
+                        } else {
+                          acc.push(patient);
+                        }
+                      }
+                      return acc;
+                    }, [] as PatientData[])
+                    .sort((a, b) => (a.name || a.fileNo).localeCompare(b.name || b.fileNo)).map((patient) => (
                     <li key={patient.fileNo} className="py-3 hover:bg-gray-50 cursor-pointer" onClick={() => handleSelectPatientForFollowUp(patient)}>
                       <div className="flex items-center justify-between">
                         <div>
@@ -157,6 +270,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                     </li>
                   ))}
                 </ul>
+                </>
               )}
             </div>
             <div className="p-4 border-t flex justify-end">

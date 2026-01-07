@@ -1,10 +1,8 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import type { PatientData } from '../types.ts';
-import { GoogleGenAI } from "@google/genai";
-
-// To prevent type errors with the global html2pdf library
-declare const html2pdf: any;
+import OpenAI from 'openai';
+import html2pdf from 'html2pdf.js';
 
 interface PrintableViewProps {
   data: PatientData;
@@ -34,7 +32,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 );
 
 const PairedComplaintRow: React.FC<{ item1: {label: string, value: React.ReactNode}, item2: {label: string, value: React.ReactNode} }> = ({ item1, item2 }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 border-b border-black">
+    <div className="grid grid-cols-2 border-b border-black">
       <div className="grid grid-cols-[150px_1fr] border-r border-black">
          <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center text-sm">{item1.label}</div>
          <div className="p-1.5 break-words min-w-0 flex items-center text-sm">{item1.value || <span className="text-gray-400">N/A</span>}</div>
@@ -54,14 +52,15 @@ const SingleComplaintRow: React.FC<{ label: string; value: React.ReactNode; }> =
 );
 
 
-const FullWidthRow: React.FC<{ label: string; value: React.ReactNode; isLast?: boolean }> = ({ label, value, isLast=false }) => (
+const FullWidthRow: React.FC<{ label: string; value: React.ReactNode; isLast?: boolean; preserveNewlines?: boolean }> = ({ label, value, isLast=false, preserveNewlines=false }) => (
     <div className={`grid grid-cols-[200px_1fr] ${!isLast ? 'border-b border-black' : ''}`}>
         <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center text-sm">{label}</div>
-        <div className="p-1.5 break-words min-w-0 text-sm">{value || <span className="text-gray-400">N/A</span>}</div>
+        <div className={`p-1.5 break-words min-w-0 text-sm ${preserveNewlines ? 'whitespace-pre-line' : ''}`}>{value || <span className="text-gray-400">N/A</span>}</div>
     </div>
 );
 
-const SoapModal: React.FC<{ content: string; onClose: () => void; }> = ({ content, onClose }) => {
+// SOAP Modal removed - will be in premium version
+/*const SoapModal: React.FC<{ content: string; onClose: () => void; }> = ({ content, onClose }) => {
     const [copySuccess, setCopySuccess] = useState('');
 
     const copyToClipboard = () => {
@@ -98,52 +97,14 @@ const SoapModal: React.FC<{ content: string; onClose: () => void; }> = ({ conten
             </div>
         </div>
     );
-};
+};*/
 
 
 export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGoToList }) => {
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [soapNote, setSoapNote] = useState<string | null>(null);
-  const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
+  // SOAP note generation removed - will be in premium version
+  // const [soapNote, setSoapNote] = useState<string | null>(null);
+  // const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
   const isFollowUp = data.chartType === 'follow-up';
-
-  const handleDownloadPdf = () => {
-    setIsDownloading(true);
-    const element = document.getElementById('print-area');
-    if (!element) {
-        console.error('Print area not found');
-        setIsDownloading(false);
-        return;
-    }
-
-    const fileName = `${data.fileNo}_${data.name.replace(/\s/g, '_')}.pdf`;
-
-    const opt = {
-      margin:       0.25,
-      filename:     fileName,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['css'], before: '.break-before-page' }
-    };
-
-    html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
-        const totalPages = pdf.internal.getNumberOfPages();
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-
-        pdf.setFontSize(8);
-        pdf.setTextColor(100);
-
-        for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            const footerText = `${data.name}  |  File No.: ${data.fileNo}  |  Page ${i} of ${totalPages}`;
-            pdf.text(footerText, pageWidth / 2, pageHeight - 0.15, { align: 'center' });
-        }
-    }).save().finally(() => {
-        setIsDownloading(false);
-    });
-  };
 
   const handlePrintPdf = () => {
     const element = document.getElementById('print-area');
@@ -152,7 +113,53 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         return;
     }
 
-    // 브라우저 인쇄 기능 사용 (텍스트 복사 가능한 PDF 생성)
+    // 파일명 생성: fileNo + visitingDate(YYMMdd) + LN.FN
+    const formatFileName = () => {
+      const fileNo = data.fileNo || 'UNKNOWN';
+      
+      // 날짜를 YYMMdd 형식으로 변환
+      let dateStr = '';
+      if (data.date) {
+        const date = new Date(data.date);
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        dateStr = `${year}${month}${day}`;
+      } else {
+        dateStr = 'NODATE';
+      }
+      
+      // 이름 파싱: "DOE, John" 형식 또는 "John Doe" 형식
+      let lastName = '';
+      let firstName = '';
+      if (data.name) {
+        if (data.name.includes(',')) {
+          // "DOE, John" 형식
+          const parts = data.name.split(',').map(s => s.trim());
+          lastName = parts[0] || '';
+          firstName = parts[1] || '';
+        } else {
+          // "John Doe" 형식
+          const parts = data.name.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            firstName = parts[0] || '';
+            lastName = parts[parts.length - 1] || '';
+          } else if (parts.length === 1) {
+            lastName = parts[0] || '';
+          }
+        }
+      }
+      
+      // 각각 3글자만 사용 (대문자로)
+      const ln = lastName.toUpperCase().substring(0, 3).padEnd(3, 'X');
+      const fn = firstName.toUpperCase().substring(0, 3).padEnd(3, 'X');
+      
+      return `${fileNo}${dateStr}${ln}.${fn}`;
+    };
+
+    const fileName = formatFileName();
+
+    // 브라우저 인쇄 기능 사용 (저장 위치 선택 가능, 텍스트 복사 가능한 PDF)
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
@@ -168,7 +175,7 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${data.fileNo}_${data.name}</title>
+          <title>${fileName}</title>
           ${styles}
           <style>
             @media print {
@@ -190,12 +197,16 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
     `);
     printWindow.document.close();
     
+    // 파일명을 제목에 설정하여 인쇄 시 파일명으로 제안되도록 함
     setTimeout(() => {
       printWindow.print();
+      // 인쇄 다이얼로그에서 "PDF로 저장" 선택 시 파일명이 제안됨
+      // (브라우저에 따라 다를 수 있음)
     }, 250);
   };
 
-    const handleGenerateSoapNote = async () => {
+    // SOAP note generation removed - will be in premium version
+    /*const handleGenerateSoapNote = async () => {
         setIsGeneratingSoap(true);
         setSoapNote('Generating, please wait...');
 
@@ -239,23 +250,89 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         ${chartSummary}
         
         Instructions:
+        - IMPORTANT: Use the exact date provided in the chart summary: ${data.date}. Do NOT change or modify this date.
         - S (Subjective): Synthesize the Chief Complaint, HPI, and relevant Review of Systems into a narrative. For follow-up visits, use the "Follow-up Notes / Changes" as the HPI.
         - O (Objective): List the key objective findings like vitals and tongue/pulse diagnosis.
         - A (Assessment): State the TCM Diagnosis clearly.
         - P (Plan): Detail the treatment plan, including principles, acupuncture, herbs, and other modalities.
-        - The output should be plain text, clearly structured with S, O, A, P headings.`;
+        - The output should be plain text, clearly structured with S, O, A, P headings.
+        - Include the visit date at the beginning: "Visit Date: ${data.date}"`;
 
         try {
-            const apiKey = import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+            const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
             if (!apiKey) {
-              throw new Error('GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+              throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
             }
-            const ai = new GoogleGenAI({ apiKey });
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
-            const generatedSoap = response.text.trim();
+            const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+            
+            // 재시도 로직
+            const maxRetries = 3;
+            const baseDelay = 2000; // 2초
+            let response;
+            let lastError;
+            
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    response = await openai.chat.completions.create({
+                        model: 'gpt-4o-mini',
+                        messages: [{ role: 'user', content: prompt }],
+                    });
+                    break; // 성공하면 루프 종료
+                } catch (error: any) {
+                    lastError = error;
+                    // OpenAI API 오류 코드 처리
+                    const isRetryableError = error?.status === 429 || // Rate limit
+                                           error?.status === 503 || // Server overload
+                                           error?.message?.includes('rate_limit') ||
+                                           error?.message?.includes('overloaded') ||
+                                           error?.message?.includes('503') ||
+                                           error?.message?.includes('429');
+                    
+                    // 할당량 초과(429)는 재시도하지 않음
+                    if (error?.status === 429) {
+                        throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+                    }
+                    
+                    if (isRetryableError && attempt < maxRetries - 1) {
+                        const delay = baseDelay * Math.pow(2, attempt); // 지수 백오프: 2초, 4초, 8초
+                        
+                        // Retry-After 시간 파싱 (여러 방법 시도)
+                        let waitTime = delay;
+                        const retryInfo = error?.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                        
+                        if (retryInfo?.retryDelay) {
+                            // retryDelay가 문자열인 경우 (예: "24.23s" 또는 "24.23")
+                            const retryDelayStr = String(retryInfo.retryDelay);
+                            const match = retryDelayStr.match(/(\d+\.?\d*)/);
+                            if (match) {
+                                waitTime = parseFloat(match[1]) * 1000; // 초를 밀리초로 변환
+                            }
+                        } else if (error?.error?.message) {
+                            // 메시지에서 "Please retry in X.XXs" 패턴 찾기
+                            const messageMatch = error.error.message.match(/retry in ([\d.]+)s/i);
+                            if (messageMatch) {
+                                waitTime = parseFloat(messageMatch[1]) * 1000;
+                            }
+                        }
+                        
+                        // 최소 대기 시간 보장 (너무 짧으면 문제 발생 가능)
+                        waitTime = Math.max(waitTime, 1000);
+                        
+                        console.log(`⚠️ API 오류 발생. ${(waitTime / 1000).toFixed(1)}초 후 재시도... (${attempt + 1}/${maxRetries})`);
+                        setSoapNote(`API 오류 발생. ${(waitTime / 1000).toFixed(1)}초 후 재시도 중... (${attempt + 1}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue;
+                    } else {
+                        throw error; // 재시도 불가능하거나 최대 재시도 횟수 초과
+                    }
+                }
+            }
+            
+            if (!response) {
+                throw lastError || new Error('API 호출 실패');
+            }
+            
+            const generatedSoap = response.choices[0]?.message?.content?.trim() || '';
             setSoapNote(generatedSoap);
             
             // SOAP 노트를 PDF로 저장 - 브라우저 인쇄 기능 사용 (텍스트 복사 가능)
@@ -322,13 +399,23 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
             setTimeout(() => {
               printWindow.print();
             }, 500);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating SOAP note:", error);
-            setSoapNote("Failed to generate SOAP note. Please check the console for details.");
+            
+            let errorMessage = "SOAP 노트 생성에 실패했습니다.";
+            if (error?.status === 429) {
+                errorMessage = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.";
+            } else if (error?.status === 503) {
+                errorMessage = "서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.";
+            } else if (error?.message) {
+                errorMessage = error.message;
+            }
+            
+            setSoapNote(`오류: ${errorMessage}`);
         } finally {
             setIsGeneratingSoap(false);
         }
-    };
+    };*/
 
 
   const heightValue = [
@@ -367,7 +454,8 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
   const renderMenstruation = () => {
     const { menstruation } = ros;
     if (menstruation.status === 'menopause') {
-      return `Menopause (Age: ${menstruation.menopauseAge || 'N/A'})`;
+      if (isFollowUp) return 'Menopause';
+      return menstruation.menopauseAge ? `Menopause (Age: ${menstruation.menopauseAge})` : 'Menopause';
     }
     if (menstruation.status === 'regular' || menstruation.status === 'irregular') {
       const parts = [
@@ -475,15 +563,83 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
 
   const renderRespondToCare = () => {
     if (!data.respondToCare || !data.respondToCare.status) return <span className="text-gray-400">N/A</span>;
-    const { status, improvedDays, notes } = data.respondToCare;
-    let text = status;
+    const { 
+      status, 
+      improvedDays, 
+      painLevelBefore, 
+      painLevelAfter, 
+      painLevelCurrent,
+      canDriveWithoutPain,
+      canSitWithoutPain,
+      canSitDuration,
+      canStandWithoutPain,
+      canStandDuration,
+      canWalkWithoutPain,
+      canWalkDistance,
+      sleepQualityImprovement,
+      dailyActivitiesImprovement,
+      notes 
+    } = data.respondToCare;
+    
+    const parts: string[] = [];
+    
+    // Overall status
+    parts.push(`Status: ${status}`);
+    
+    // Improvement duration
     if (status === 'Improved' && improvedDays) {
-      text += ` (Good for ${improvedDays} days)`;
+      parts.push(`Improvement lasted: ${improvedDays} days`);
     }
+    
+    // Pain levels
+    if (painLevelBefore || painLevelAfter || painLevelCurrent) {
+      const painParts: string[] = [];
+      if (painLevelBefore) painParts.push(`Before: ${painLevelBefore}/10`);
+      if (painLevelAfter) painParts.push(`After: ${painLevelAfter}/10`);
+      if (painLevelCurrent) painParts.push(`Current: ${painLevelCurrent}/10`);
+      if (painParts.length > 0) {
+        parts.push(`Pain levels: ${painParts.join(', ')}`);
+      }
+    }
+    
+    // Functional activities
+    const activities: string[] = [];
+    if (canDriveWithoutPain) {
+      activities.push(`Drive: ${canDriveWithoutPain}`);
+    }
+    if (canSitWithoutPain) {
+      let sitText = `Sit: ${canSitWithoutPain}`;
+      if (canSitDuration) sitText += ` (${canSitDuration})`;
+      activities.push(sitText);
+    }
+    if (canStandWithoutPain) {
+      let standText = `Stand: ${canStandWithoutPain}`;
+      if (canStandDuration) standText += ` (${canStandDuration})`;
+      activities.push(standText);
+    }
+    if (canWalkWithoutPain) {
+      let walkText = `Walk: ${canWalkWithoutPain}`;
+      if (canWalkDistance) walkText += ` (${canWalkDistance})`;
+      activities.push(walkText);
+    }
+    if (activities.length > 0) {
+      parts.push(`Functional activities: ${activities.join('; ')}`);
+    }
+    
+    // Quality of life
+    if (sleepQualityImprovement) {
+      parts.push(`Sleep: ${sleepQualityImprovement}`);
+    }
+    if (dailyActivitiesImprovement) {
+      parts.push(`Daily activities: ${dailyActivitiesImprovement}`);
+    }
+    
+    // Notes
     if (notes) {
-      text += ` - Notes: ${notes}`;
+      parts.push(`Notes: ${notes}`);
     }
-    return text;
+    
+    return parts.length > 0 ? parts.join(' | ') : 'N/A';
   }
 
   const renderPulseSection = () => {
@@ -493,7 +649,17 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         <>
             <div className="grid grid-cols-[150px_1fr] border-b border-black">
                 <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center text-sm">Overall Qualities</div>
-                <div className="p-1.5 break-words min-w-0 text-sm">{pulse.overall.join(', ') || <span>&nbsp;</span>}</div>
+                <div className="p-1.5 min-h-[2rem]">
+                  {pulse.overall && pulse.overall.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 text-xs">
+                      {pulse.overall.map((q, idx) => (
+                        <span key={`${q}-${idx}`} className="px-2 py-1 bg-gray-100 border border-gray-300 rounded">{q}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span>&nbsp;</span>
+                  )}
+                </div>
             </div>
             <div className="grid grid-cols-[150px_1fr]">
                 <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center text-sm">Notes</div>
@@ -523,8 +689,8 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         ) : (
              <>
                 <PairedComplaintRow item1={{label: "Location", value: locationDisplay}} item2={{label: "Radiation", value: data.chiefComplaint.regionRadiation}} />
-                <PairedComplaintRow item1={{label: "Severity", value: severityDisplay}} item2={{label: "Frequency", value: data.chiefComplaint.frequency}} />
-                <SingleComplaintRow label="Timing" value={data.chiefComplaint.timing} />
+                <PairedComplaintRow item1={{label: "Quality", value: qualityDisplay}} item2={{label: "Severity", value: severityDisplay}} />
+                <PairedComplaintRow item1={{label: "Frequency", value: data.chiefComplaint.frequency}} item2={{label: "Timing", value: data.chiefComplaint.timing}} />
             </>
         )}
     </>
@@ -532,7 +698,7 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
 
   return (
     <div className="max-w-4xl mx-auto">
-       {soapNote && <SoapModal content={soapNote} onClose={() => setSoapNote(null)} />}
+       {/* SOAP Modal removed - will be in premium version */}
       <div className="bg-white p-1 sm:p-2 md:p-4" id="print-area">
         
         {/* PAGE 1 CONTAINER */}
@@ -554,36 +720,36 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
 
           {/* Patient Info Section */}
           <div className="border-b-2 border-black">
-            <div className="grid grid-cols-1 md:grid-cols-3">
-              <DataCell label="FILE NO." value={data.fileNo} className="border-b-0 md:border-b border-r-0 md:border-r"/>
-              <DataCell label="Name" value={data.name} className="border-b-0 md:border-b border-r-0 md:border-r"/>
-              <DataCell label="Date:" value={data.date} className="border-b-0 md:border-b border-r-0"/>
+            <div className="grid grid-cols-3">
+              <DataCell label="FILE NO." value={data.fileNo} className="border-r"/>
+              <DataCell label="Name" value={data.name} className="border-r"/>
+              <DataCell label="Date:" value={data.date} />
             </div>
             {!isFollowUp && (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-3">
-                        <DataCell label="Address" value={data.address} className="md:col-span-2 border-b-0 md:border-b border-r-0 md:border-r" />
-                        <DataCell label="Phone" value={data.phone} className="border-b-0 md:border-b border-r-0" />
+                    <div className="grid grid-cols-3">
+                        <DataCell label="Address" value={data.address} className="col-span-2 border-b-0 border-r" />
+                        <DataCell label="Phone" value={data.phone} className="border-b-0" />
                     </div>
                 </>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr]">
-                <DataCell label="Occupation" value={data.occupation} className="border-b-0 border-r-0 md:border-r"/>
-                <DataCell label="DOB" value={data.dob} className="border-b-0 border-r-0 md:border-r" />
-                <DataCell label="Age" value={`${data.age}`} className="border-b-0 border-r-0 md:border-r" />
-                <DataCell label="Sex" value={data.sex} className="border-b-0 border-r-0" />
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr]">
+                <DataCell label="Occupation" value={data.occupation} className="border-b-0 border-r"/>
+                <DataCell label="DOB" value={data.dob} className="border-b-0 border-r" />
+                <DataCell label="Age" value={`${data.age}`} className="border-b-0 border-r" />
+                <DataCell label="Sex" value={data.sex} className="border-b-0" />
             </div>
           </div>
 
           {/* Vitals Section */}
           <div className="border-b-2 border-black">
             <SectionHeader title="VITAL SIGNS" />
-            <div className="grid grid-cols-1 md:grid-cols-3">
+            <div className="grid grid-cols-3">
               <VitalsCell label="HT." value={heightValue} unit="" className="border-r border-black" />
               <VitalsCell label="WT." value={data.weight} unit="lbs" className="border-r border-black" />
               <VitalsCell label="Temp." value={data.temp} unit="°F" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-black">
+            <div className="grid grid-cols-2 border-t border-black">
               <div className="flex border-r border-black">
                   <div className="font-bold p-2 w-1/4 border-r border-black bg-slate-50 flex items-center justify-center">Heart</div>
                   <div className="w-3/4">
@@ -643,38 +809,67 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
 
         {/* PAGE 2 CONTAINER */}
         <div className="border-2 border-black break-before-page mt-4 print:mt-0">
-          {/* Medical History Section */}
+          {/* Medical History Section - Vertical layout */}
           {!isFollowUp && (
-              <div className="grid grid-cols-2 border-b-2 border-black">
-                  <div className="border-r border-b border-black flex">
-                      <div className="w-1/3 bg-gray-300 p-1.5 font-bold flex items-center text-center justify-center border-r border-black text-sm">Past Medical History</div>
-                      <div className="w-2/3 p-1.5 break-words min-w-0 text-sm">{pastMedicalHistoryDisplay || <span className="text-gray-400">N/A</span>}</div>
+              <div className="border-b-2 border-black divide-y-2 divide-black">
+                  <div className="grid grid-cols-[200px_1fr] min-h-[3rem]">
+                      <div className="bg-gray-300 p-1.5 font-bold flex items-center justify-center text-sm border-r border-black">Past Medical History</div>
+                      <div className="p-1.5 break-words min-w-0 text-sm">{pastMedicalHistoryDisplay || <span className="text-gray-400">N/A</span>}</div>
                   </div>
-                  <div className="border-b border-black flex">
-                      <div className="w-1/3 bg-gray-300 p-1.5 font-bold flex items-center text-center justify-center border-r border-black text-sm">Medication</div>
-                      <div className="w-2/3 p-1.5 break-words min-w-0 text-sm">{medicationDisplay || <span className="text-gray-400">N/A</span>}</div>
+                  <div className="grid grid-cols-[200px_1fr] min-h-[3rem]">
+                      <div className="bg-gray-300 p-1.5 font-bold flex items-center justify-center text-sm border-r border-black">Medication</div>
+                      <div className="p-1.5 break-words min-w-0 text-sm">{medicationDisplay || <span className="text-gray-400">N/A</span>}</div>
                   </div>
-                  <div className="border-r border-black flex">
-                      <div className="w-1/3 bg-gray-300 p-1.5 font-bold flex items-center text-center justify-center border-r border-black text-sm">Family Hx.</div>
-                      <div className="w-2/3 p-1.5 break-words min-w-0 text-sm">{familyHistoryDisplay || <span className="text-gray-400">N/A</span>}</div>
+                  <div className="grid grid-cols-[200px_1fr] min-h-[3rem]">
+                      <div className="bg-gray-300 p-1.5 font-bold flex items-center justify-center text-sm border-r border-black">Family History</div>
+                      <div className="p-1.5 break-words min-w-0 text-sm">{familyHistoryDisplay || <span className="text-gray-400">N/A</span>}</div>
                   </div>
-                  <div className="flex">
-                      <div className="w-1/3 bg-gray-300 p-1.5 font-bold flex items-center text-center justify-center border-r border-black text-sm">Allergy</div>
-                      <div className="w-2/3 p-1.5 break-words min-w-0 text-sm">{allergyDisplay || <span className="text-gray-400">N/A</span>}</div>
+                  <div className="grid grid-cols-[200px_1fr] min-h-[3rem]">
+                      <div className="bg-gray-300 p-1.5 font-bold flex items-center justify-center text-sm border-r border-black">Allergy</div>
+                      <div className="p-1.5 break-words min-w-0 text-sm">{allergyDisplay || <span className="text-gray-400">N/A</span>}</div>
                   </div>
               </div>
           )}
 
-          {/* Review of Systems Section - Compact Layout */}
-          <div className="p-2 border-b-2 border-black">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  {rosItems.map(item => (
-                      <p key={item.label}>
-                          <span className="font-bold">{item.label}:</span>{' '}
-                          {item.value || <span className="text-gray-400">N/A</span>}
-                      </p>
-                  ))}
-              </div>
+          {/* Review of Systems Section - Paired layout like Chief Complaint */}
+          <div className="border-b-2 border-black">
+            <SectionHeader title="REVIEW OF SYSTEMS" />
+            <div className="text-sm">
+              {(() => {
+                const rows = [];
+                for (let i = 0; i < rosItems.length; i += 2) {
+                  const first = rosItems[i];
+                  const second = rosItems[i + 1];
+                  rows.push(
+                    <div key={first.label} className="grid grid-cols-2 border-t border-black">
+                      {/* Left cell */}
+                      <div className="grid grid-cols-[150px_1fr] border-r border-black">
+                        <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center">
+                          {first.label}
+                        </div>
+                        <div className="p-1.5 break-words min-w-0">
+                          {first.value || <span className="text-gray-400">N/A</span>}
+                        </div>
+                      </div>
+                      {/* Right cell (if exists) */}
+                      {second ? (
+                        <div className="grid grid-cols-[150px_1fr]">
+                          <div className="font-bold p-1.5 border-r border-black bg-slate-50 flex items-center justify-center">
+                            {second.label}
+                          </div>
+                          <div className="p-1.5 break-words min-w-0">
+                            {second.value || <span className="text-gray-400">N/A</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-l border-black" />
+                      )}
+                    </div>
+                  );
+                }
+                return rows;
+              })()}
+            </div>
           </div>
 
           {/* Inspection of the Tongue Section */}
@@ -716,7 +911,7 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
             <SectionHeader title="TREATMENT" />
             <div>
               <FullWidthRow label="TREATMENT PRINCIPLE" value={data.diagnosisAndTreatment.treatmentPrinciple} />
-              <FullWidthRow label="ACUPUNCTURE POINTS" value={data.diagnosisAndTreatment.acupuncturePoints} />
+              <FullWidthRow label="ACUPUNCTURE POINTS" value={data.diagnosisAndTreatment.acupuncturePoints} preserveNewlines={true} />
               <FullWidthRow label="HERBAL TREATMENT" value={getFormulaName(data.diagnosisAndTreatment.herbalTreatment)} />
               <FullWidthRow label="OTHER TREATMENTS" value={renderCombinedOtherTreatments()} />
 
@@ -734,9 +929,9 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
           </div>
         </div>
         
-        {/* PAGE 3 CONTAINER - Consent Form */}
+        {/* Consent Form (First Visit) - same page (no forced page break) */}
         {!isFollowUp && (
-            <div className="pt-8 text-black break-before-page">
+            <div className="pt-8 text-black">
                 <div>
                     <h2 className="text-center font-bold text-lg mb-4">Consent for Treatments and Arbitration Agreement</h2>
                     <div className="text-xs space-y-2 text-justify">
@@ -768,6 +963,32 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
                 </div>
             </div>
         )}
+        
+        {/* Follow-up Chart Signature Section (same page, no forced page break) */}
+        {isFollowUp && (
+            <div className="pt-8 text-black">
+                <div className="mt-8 text-sm space-y-8">
+                    <div className="flex items-end space-x-4">
+                        <span className="font-bold whitespace-nowrap">Patient's signature :</span>
+                        <div className="flex-grow border-b border-black min-h-[40px]"></div>
+                        <span className="font-bold whitespace-nowrap">Date :</span>
+                        <div className="w-40 border-b border-black"></div>
+                    </div>
+                    <div className="flex items-end space-x-4">
+                        <span className="font-bold whitespace-nowrap">Therapist Name:</span>
+                        <div className="flex-grow border-b border-black text-center">{data.diagnosisAndTreatment.therapistName}</div>
+                        <span className="font-bold whitespace-nowrap">Lic #: AC</span>
+                        <div className="w-40 border-b border-black text-center">{data.diagnosisAndTreatment.therapistLicNo}</div>
+                    </div>
+                    <div className="flex items-end space-x-4">
+                        <span className="font-bold whitespace-nowrap">Signature:</span>
+                        <div className="flex-grow border-b border-black"></div>
+                        <span className="font-bold whitespace-nowrap">Date:</span>
+                        <div className="w-40 border-b border-black"></div>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
 
       <div className="mt-8 flex justify-center space-x-4 print:hidden">
@@ -777,38 +998,11 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
         <button onClick={onEdit} className="px-6 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
           Edit
         </button>
-        <button 
-          onClick={() => {
-            const element = document.getElementById('print-area');
-            if (element) {
-              const text = element.innerText || element.textContent || '';
-              navigator.clipboard.writeText(text).then(() => {
-                alert('차트 텍스트가 클립보드에 복사되었습니다.');
-              }).catch(err => {
-                console.error('복사 실패:', err);
-                alert('복사에 실패했습니다.');
-              });
-            }
-          }}
-          className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
-          Copy Chart Text
-        </button>
-        <button 
-          onClick={handleGenerateSoapNote}
-          disabled={isGeneratingSoap}
-          className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200 disabled:bg-purple-400 disabled:cursor-not-allowed">
-          {isGeneratingSoap ? 'Generating...' : 'Generate SOAP Note'}
-        </button>
-        <button 
-          onClick={handleDownloadPdf}
-          disabled={isDownloading}
-          className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-green-400 disabled:cursor-not-allowed">
-          {isDownloading ? 'Downloading...' : 'Download PDF (Image)'}
-        </button>
+        {/* SOAP Note button removed - will be in premium version */}
         <button 
           onClick={handlePrintPdf}
-          className="px-6 py-2 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200">
-          Print PDF (Text Copyable)
+          className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+          Download / Print PDF (Text Copyable)
         </button>
       </div>
     </div>

@@ -1,6 +1,17 @@
 import type { PatientData } from '../types';
 import type { User } from './database';
 
+// 100106 신규환자 샘플 데이터 생성 함수
+export const getNewPatientSample100106 = (clinicInfo?: any): PatientData => {
+  const baseSample = getNewPatientSample(clinicInfo);
+  return {
+    ...baseSample,
+    fileNo: '100106',
+    name: 'Sample, Patient',
+    date: new Date().toISOString().split('T')[0],
+  };
+};
+
 // 신규환자 샘플 데이터 (Jane Doe) - 빈 값으로 설정
 export const getNewPatientSample = (clinicInfo?: any): PatientData => ({
   chartType: 'new',
@@ -305,7 +316,19 @@ export const initializeTestUser = async () => {
       
       // 테스트 사용자의 비밀번호를 항상 업데이트 (비밀번호가 변경되었을 수 있으므로)
       console.log('🔧 테스트 사용자 비밀번호 업데이트 중...');
-      await database.updateUserPassword('sjoekim', testUserData.password);
+      try {
+        await database.updateUserPassword('sjoekim', testUserData.password);
+        console.log('✅ 비밀번호 업데이트 완료');
+        
+        // 비밀번호 업데이트 확인을 위해 사용자 정보 다시 조회
+        const updatedUser = await database.getUserByUsername('sjoekim');
+        if (updatedUser) {
+          console.log('✅ 사용자 정보 확인 완료:', updatedUser.username);
+        }
+      } catch (error) {
+        console.error('❌ 비밀번호 업데이트 실패:', error);
+        // 비밀번호 업데이트 실패해도 계속 진행
+      }
       
       // 기존 사용자가 승인되지 않은 경우 자동 승인 (테스트 계정이므로)
       if (!existingUser.isApproved) {

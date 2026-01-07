@@ -174,6 +174,37 @@ export interface DiagnosisAndTreatmentData {
 export interface RespondToCareData {
   status: 'Resolved' | 'Improved' | 'Same' | 'Worse' | '';
   improvedDays: string;
+  improvedPercent?: string; // How much ?%
+  treatmentAfterDays?: string; // 치료 후 ?days
+  // Pain assessment
+  painLevelBefore?: string; // 0-10 scale
+  painLevelAfter?: string; // 0-10 scale
+  painLevelCurrent?: string; // 0-10 scale
+  // Functional activities
+  canDriveWithoutPain?: 'Yes' | 'No' | 'Partial' | '';
+  canSitWithoutPain?: 'Yes' | 'No' | 'Partial' | '';
+  canSitDuration?: string; // minutes/hours
+  canSitMaxTime?: '5min' | '15min' | '30min' | '60min+' | ''; // 통증 없이 앉아 있을 수 있는 최대 시간
+  canStandWithoutPain?: 'Yes' | 'No' | 'Partial' | '';
+  canStandDuration?: string; // minutes/hours
+  canWalkWithoutPain?: 'Yes' | 'No' | 'Partial' | '';
+  canWalkDistance?: string; // distance or duration
+  canWalkMaxTime?: '5min' | '15min' | '30min' | '60min+' | ''; // 통증 없이 걷기 가능한 시간
+  canDriveMaxTime?: '5min' | '15min' | '30min' | '60min+' | ''; // 운전 시 통증이 시작되기까지 걸리는 시간
+  // Daily activities discomfort (0-10 scale)
+  houseworkDiscomfort?: string; // 집안일 (청소, 요리) 불편함 정도
+  liftingDiscomfort?: string; // 물건 들기 불편함 정도
+  sleepQualityDiscomfort?: string; // 수면의 질 불편함 정도
+  commuteDiscomfort?: string; // 출퇴근/운전 불편함 정도
+  // Additional metrics
+  avoidedActivitiesCount?: string; // 통증 때문에 피하고 있는 활동 수
+  painMedicationFrequency?: string; // 진통제 복용 빈도 (주 ___회)
+  medicationChange?: 'Decreased' | 'Same' | 'Increased' | ''; // 치료 전 대비 약물 사용 변화
+  recoveryPercent?: string; // 치료 전과 비교했을 때, 현재 상태는 몇 % 회복
+  // Quality of life
+  sleepQualityImprovement?: 'Much Better' | 'Better' | 'Same' | 'Worse' | '';
+  dailyActivitiesImprovement?: 'Much Better' | 'Better' | 'Same' | 'Worse' | '';
+  // Additional details
   notes?: string;
 }
 
@@ -190,12 +221,21 @@ export interface RangeOfMotionData {
     externalRotation?: string;   // 외회전 (degrees)
     lateralFlexion?: string;     // 측면 굴곡 (degrees) - 목/척추용
     rotation?: string;            // 회전 (degrees) - 목/척추용
+    pronation?: string;           // 회내 (degrees) - 팔꿈치용
+    supination?: string;         // 회외 (degrees) - 팔꿈치용
+    radialDeviation?: string;    // 요골 편위 (degrees) - 손목용
+    ulnarDeviation?: string;     // 척골 편위 (degrees) - 손목용
+    dorsiflexion?: string;       // 배굴 (degrees) - 발목용
+    plantarflexion?: string;    // 저굴 (degrees) - 발목용
+    inversion?: string;          // 내번 (degrees) - 발목용
+    eversion?: string;           // 외번 (degrees) - 발목용
     notes?: string;              // 추가 메모
   };
 }
 
 export interface PatientData {
   chartType: 'new' | 'follow-up';
+  patientType?: 'cash' | 'insurance' | 'pi' | 'worker-comp';
   clinicName: string;
   clinicLogo: string; // Base64 string
   fileNo: string;

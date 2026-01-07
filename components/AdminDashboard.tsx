@@ -2,13 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { database } from '../lib/database';
 import type { User } from '../types/auth';
 import { NotificationSettings } from './NotificationSettings';
+import { useAuth } from '../contexts/AuthContext';
+import { useAdminMode } from '../hooks/useAdminMode';
 
 export const AdminDashboard: React.FC = () => {
+  const { logout } = useAuth();
+  const { clearAdminMode } = useAdminMode();
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  
+  const handleLogout = () => {
+    clearAdminMode();
+    logout();
+  };
 
   const loadUsers = async () => {
     try {
@@ -91,12 +100,20 @@ export const AdminDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">관리자 대시보드</h1>
-            <button
-              onClick={() => setShowNotificationSettings(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              알림 설정
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowNotificationSettings(true)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                알림 설정
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
           
           {message && (

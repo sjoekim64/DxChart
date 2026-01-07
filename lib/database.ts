@@ -35,7 +35,7 @@ export interface ClinicInfo {
 
 export class IndexedDBDatabase {
   private dbName = 'PatientChartDB';
-  private version = 2; // 버전 증가로 스키마 재생성
+  private version = 4; // 버전 증가: userId_fileNo_date 인덱스의 unique 제약 제거
   private db: IDBDatabase | null = null;
 
   async initialize(): Promise<void> {
@@ -73,7 +73,26 @@ export class IndexedDBDatabase {
           const chartStore = db.createObjectStore('patientCharts', { keyPath: 'id', autoIncrement: true });
           chartStore.createIndex('userId', 'userId', { unique: false });
           chartStore.createIndex('fileNo', 'fileNo', { unique: false });
-          chartStore.createIndex('userId_fileNo', ['userId', 'fileNo'], { unique: true });
+          chartStore.createIndex('userId_fileNo', ['userId', 'fileNo'], { unique: false }); // unique 제거: 같은 fileNo의 여러 차트 저장 가능
+          chartStore.createIndex('userId_fileNo_date', ['userId', 'fileNo', 'date'], { unique: false }); // unique 제거: 같은 날짜의 여러 차트도 저장 가능
+        } else {
+          // 기존 테이블이 있으면 인덱스 수정
+          const transaction = (event.target as IDBOpenDBRequest).transaction!;
+          const chartStore = transaction.objectStore('patientCharts');
+          // 기존 unique 인덱스 삭제 후 재생성
+          if (chartStore.indexNames.contains('userId_fileNo')) {
+            chartStore.deleteIndex('userId_fileNo');
+          }
+          if (!chartStore.indexNames.contains('userId_fileNo')) {
+            chartStore.createIndex('userId_fileNo', ['userId', 'fileNo'], { unique: false });
+          }
+          if (chartStore.indexNames.contains('userId_fileNo_date')) {
+            // 기존 unique 인덱스가 있으면 삭제 후 재생성
+            chartStore.deleteIndex('userId_fileNo_date');
+          }
+          if (!chartStore.indexNames.contains('userId_fileNo_date')) {
+            chartStore.createIndex('userId_fileNo_date', ['userId', 'fileNo', 'date'], { unique: false });
+          }
         }
 
         // Clinic Info 테이블
@@ -131,6 +150,12 @@ export class IndexedDBDatabase {
     if (!this.db) {
       console.log('🗄️ 데이터베이스 초기화 필요, 초기화 중...');
       await this.initialize();
+    }
+    
+    // "admin" 사용자명 금지
+    if (userData.username.toLowerCase() === 'admin') {
+      console.error('❌ "admin"은 사용할 수 없는 사용자명입니다.');
+      throw new Error('"admin"은 사용할 수 없는 사용자명입니다.');
     }
     
     // 먼저 사용자명 중복 체크
@@ -229,6 +254,21 @@ export class IndexedDBDatabase {
 
   // 토큰 검증
   async verifyToken(token: string): Promise<User> {
+    // Admin 토큰 특별 처리
+    if (token.startsWith('admin_token_')) {
+      const adminUser: User = {
+        id: 'admin',
+        username: 'admin',
+        passwordHash: '',
+        clinicName: 'Admin Dashboard',
+        therapistName: 'Administrator',
+        therapistLicenseNo: 'ADMIN',
+        createdAt: new Date().toISOString(),
+        isApproved: true,
+      };
+      return adminUser;
+    }
+    
     try {
       const payload = this.verifyTokenPayload(token);
       const store = await this.getStore('users');
@@ -300,14 +340,16 @@ export class IndexedDBDatabase {
     });
   }
 
-  // 환자 차트 저장
+  // 환자 차트 저장 (기존 차트가 있으면 업데이트, 없으면 새로 생성)
   async savePatientChart(userId: string, patientData: any): Promise<PatientChart> {
     const chartData = JSON.stringify(patientData);
     const now = new Date().toISOString();
 
-    // 기존 차트가 있는지 확인
+    // 기존 차트가 있는지 확인 (같은 fileNo와 date 조합)
     const existingCharts = await this.getPatientCharts(userId);
-    const existingChart = existingCharts.find(chart => chart.fileNo === patientData.fileNo);
+    const existingChart = existingCharts.find(chart => 
+      chart.fileNo === patientData.fileNo && chart.date === patientData.date
+    );
 
     const store = await this.getStore('patientCharts', 'readwrite');
     
@@ -315,7 +357,7 @@ export class IndexedDBDatabase {
       let request: IDBRequest;
       
       if (existingChart) {
-        // 업데이트
+        // 같은 fileNo와 date가 있으면 업데이트
         const updatedChart: PatientChart = {
           ...existingChart,
           chartData,
@@ -356,16 +398,87 @@ export class IndexedDBDatabase {
         resolve(chart);
       };
       
-      request.onerror = () => {
-        reject(new Error('환자 차트 저장 실패'));
+      request.onerror = (event) => {
+        const error = (event.target as IDBRequest).error;
+        const errorMessage = error ? `환자 차트 저장 실패: ${error.message} (Code: ${error.code})` : '환자 차트 저장 실패';
+        console.error('IndexedDB 저장 에러:', error);
+        reject(new Error(errorMessage));
       };
     });
   }
 
-  // 환자 차트 삭제
-  async deletePatientChart(userId: string, fileNo: string): Promise<void> {
+  // 환자 차트를 항상 새로운 차트로 저장 (기존 차트는 덮어쓰지 않음)
+  async savePatientChartAsNew(userId: string, patientData: any): Promise<PatientChart> {
+    const chartData = JSON.stringify(patientData);
+    const now = new Date().toISOString();
+
+    const store = await this.getStore('patientCharts', 'readwrite');
+    
+    return new Promise((resolve, reject) => {
+      // 항상 새로운 차트로 저장
+      const newChart: PatientChart = {
+        fileNo: patientData.fileNo,
+        userId,
+        chartType: patientData.chartType,
+        chartData,
+        date: patientData.date,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const request = store.add(newChart);
+      
+      request.onsuccess = () => {
+        const chart: PatientChart = {
+          id: request.result as number,
+          fileNo: patientData.fileNo,
+          userId,
+          chartType: patientData.chartType,
+          chartData,
+          date: patientData.date,
+          createdAt: now,
+          updatedAt: now,
+        };
+        resolve(chart);
+      };
+      
+      request.onerror = (event) => {
+        const error = (event.target as IDBRequest).error;
+        const errorMessage = error ? `환자 차트 저장 실패: ${error.message} (Code: ${error.code})` : '환자 차트 저장 실패';
+        console.error('IndexedDB 저장 에러 (savePatientChartAsNew):', error);
+        reject(new Error(errorMessage));
+      };
+    });
+  }
+
+  // 환자 차트 삭제 (chart ID로 삭제)
+  async deletePatientChartById(userId: string, chartId: number): Promise<void> {
+    const store = await this.getStore('patientCharts', 'readwrite');
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(chartId);
+      
+      request.onsuccess = () => {
+        resolve();
+      };
+      
+      request.onerror = () => {
+        reject(new Error('환자 차트 삭제 실패'));
+      };
+    });
+  }
+
+  // 환자 차트 삭제 (fileNo와 date로 특정 차트 삭제)
+  async deletePatientChart(userId: string, fileNo: string, date?: string): Promise<void> {
     const charts = await this.getPatientCharts(userId);
-    const chartToDelete = charts.find(chart => chart.fileNo === fileNo);
+    let chartToDelete;
+    
+    if (date) {
+      // fileNo와 date로 특정 차트 찾기
+      chartToDelete = charts.find(chart => chart.fileNo === fileNo && chart.date === date);
+    } else {
+      // fileNo만으로 첫 번째 차트 찾기 (기존 동작 유지)
+      chartToDelete = charts.find(chart => chart.fileNo === fileNo);
+    }
     
     if (!chartToDelete) {
       throw new Error('삭제할 차트를 찾을 수 없습니다.');
@@ -675,37 +788,124 @@ export class IndexedDBDatabase {
     });
   }
 
+  // 사용자 프로필 업데이트
+  async updateUserProfile(userId: string, profileData: {
+    clinicName?: string;
+    therapistName?: string;
+    therapistLicenseNo?: string;
+  }): Promise<User> {
+    if (!this.db) {
+      await this.initialize();
+    }
+
+    const store = await this.getStore('users', 'readwrite');
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(userId);
+      
+      request.onsuccess = () => {
+        const user = request.result as User;
+        if (!user) {
+          reject(new Error('사용자를 찾을 수 없습니다.'));
+          return;
+        }
+
+        const updatedUser: User = {
+          ...user,
+          ...(profileData.clinicName !== undefined && { clinicName: profileData.clinicName }),
+          ...(profileData.therapistName !== undefined && { therapistName: profileData.therapistName }),
+          ...(profileData.therapistLicenseNo !== undefined && { therapistLicenseNo: profileData.therapistLicenseNo }),
+        };
+
+        const updateRequest = store.put(updatedUser);
+        updateRequest.onsuccess = () => {
+          resolve(updatedUser);
+        };
+        updateRequest.onerror = () => {
+          reject(new Error('사용자 프로필 업데이트 실패'));
+        };
+      };
+      
+      request.onerror = () => {
+        reject(new Error('사용자 조회 실패'));
+      };
+    });
+  }
+
   // 사용자 비밀번호 업데이트 (테스트 사용자용)
   async updateUserPassword(username: string, newPassword: string): Promise<void> {
-    if (!this.db) throw new Error('데이터베이스가 초기화되지 않았습니다.');
+    if (!this.db) {
+      await this.initialize();
+    }
     
     return new Promise(async (resolve, reject) => {
+      // 먼저 비밀번호 해시 생성
+      const newPasswordHash = await this.hashPassword(newPassword);
+      console.log('🔐 새 비밀번호 해시 생성 완료:', username);
+      
       const transaction = this.db!.transaction(['users'], 'readwrite');
       const store = transaction.objectStore('users');
       const index = store.index('username');
       const request = index.get(username);
       
-      request.onsuccess = async () => {
+      request.onsuccess = () => {
         const user = request.result;
         if (!user) {
           reject(new Error('사용자를 찾을 수 없습니다.'));
           return;
         }
         
-        // 새 비밀번호 해시 생성
-        const newPasswordHash = await this.hashPassword(newPassword);
+        console.log('👤 기존 사용자 찾음:', user.username);
+        console.log('🔐 기존 비밀번호 해시:', user.passwordHash.substring(0, 20) + '...');
+        
+        // 새 비밀번호 해시로 업데이트
         user.passwordHash = newPasswordHash;
+        console.log('🔐 새 비밀번호 해시로 업데이트:', newPasswordHash.substring(0, 20) + '...');
         
         const updateRequest = store.put(user);
         updateRequest.onsuccess = () => {
           console.log('✅ 사용자 비밀번호가 업데이트되었습니다:', username);
-          resolve();
+          
+          // 업데이트 확인을 위해 다시 조회
+          const verifyTransaction = this.db!.transaction(['users'], 'readonly');
+          const verifyStore = verifyTransaction.objectStore('users');
+          const verifyIndex = verifyStore.index('username');
+          const verifyRequest = verifyIndex.get(username);
+          
+          verifyRequest.onsuccess = async () => {
+            const updatedUser = verifyRequest.result;
+            if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
+              console.log('✅ 비밀번호 업데이트 확인 완료');
+              resolve();
+            } else {
+              console.error('❌ 비밀번호 업데이트 확인 실패');
+              reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
+            }
+          };
+          
+          verifyRequest.onerror = () => {
+            console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
+            reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
+          };
         };
-        updateRequest.onerror = () => reject(new Error('비밀번호 업데이트에 실패했습니다.'));
+        
+        updateRequest.onerror = (event) => {
+          console.error('❌ 비밀번호 업데이트 실패:', event);
+          reject(new Error('비밀번호 업데이트에 실패했습니다.'));
+        };
       };
       
       request.onerror = () => {
         reject(new Error('사용자 정보를 가져오는데 실패했습니다.'));
+      };
+      
+      // 트랜잭션 완료 대기
+      transaction.oncomplete = () => {
+        console.log('✅ 트랜잭션 완료');
+      };
+      
+      transaction.onerror = () => {
+        reject(new Error('트랜잭션 오류가 발생했습니다.'));
       };
     });
   }
