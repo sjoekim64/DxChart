@@ -38,8 +38,15 @@ export class IndexedDBDatabase {
   private version = 4; // 버전 증가: userId_fileNo_date 인덱스의 unique 제약 제거
   private db: IDBDatabase | null = null;
 
-  async initialize(): Promise<void> {
-    // 이미 초기화되어 있고 연결이 유효한 경우 바로 반환 (크롬 호환성 개선)
+  async initialize(forceReopen: boolean = false): Promise<void> {
+    // forceReopen이 true이면 기존 연결을 닫고 다시 열기 (크롬 호환성)
+    if (forceReopen && this.db) {
+      console.log('🔄 IndexedDB 연결 강제 재오픈...');
+      this.db.close();
+      this.db = null;
+    }
+    
+    // 이미 초기화되어 있고 연결이 유효한 경우 바로 반환
     if (this.db && this.db.objectStoreNames.length > 0) {
       console.log('✅ IndexedDB 이미 초기화됨, 재사용');
       return Promise.resolve();
