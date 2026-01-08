@@ -275,13 +275,22 @@ export class IndexedDBDatabase {
       
       // 크롬 호환성: 트랜잭션 완료를 명시적으로 대기
       let usersData: User[] | null = null;
+      let transactionCompleted = false;
       
       request.onsuccess = () => {
         usersData = request.result as User[];
-        console.log('📦 사용자 데이터 로드 완료, 트랜잭션 완료 대기 중...');
+        console.log('📦 사용자 데이터 로드 완료:', usersData.length, '명');
+        console.log('📦 트랜잭션 완료 대기 중...');
+      };
+      
+      request.onerror = (event) => {
+        console.error('❌ 사용자 데이터 로드 실패:', event);
+        reject(new Error('사용자 데이터를 로드하는데 실패했습니다.'));
       };
       
       transaction.oncomplete = async () => {
+        console.log('✅ 트랜잭션 완료, 로그인 처리 시작...');
+        transactionCompleted = true;
         try {
           if (!usersData) {
             console.error('❌ 사용자 데이터를 가져오지 못했습니다.');
@@ -350,8 +359,20 @@ export class IndexedDBDatabase {
       
       transaction.onerror = (event) => {
         console.error('❌ 트랜잭션 오류:', event);
+        console.error('❌ 트랜잭션 오류 상세:', {
+          error: (event.target as IDBTransaction)?.error,
+          message: (event.target as IDBTransaction)?.error?.message
+        });
         reject(new Error('데이터베이스 트랜잭션 오류가 발생했습니다.'));
       };
+      
+      // 크롬 호환성: 트랜잭션이 완료되지 않으면 타임아웃 처리
+      setTimeout(() => {
+        if (!transactionCompleted && usersData === null) {
+          console.error('❌ 트랜잭션 타임아웃: 트랜잭션이 완료되지 않았습니다.');
+          reject(new Error('데이터베이스 트랜잭션이 시간 초과되었습니다. 다시 시도해주세요.'));
+        }
+      }, 5000); // 5초 타임아웃
     });
   }
 
