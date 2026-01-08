@@ -1034,42 +1034,50 @@ export class IndexedDBDatabase {
         reject(new Error('사용자 정보를 가져오는데 실패했습니다.'));
       };
       
-      // 트랜잭션이 완전히 완료된 후 확인
-      transaction.oncomplete = () => {
+      // 트랜잭션이 완전히 완료된 후 확인 및 연결 재오픈 (크롬 호환성)
+      transaction.oncomplete = async () => {
         console.log('✅ 비밀번호 업데이트 트랜잭션 완료');
         
+        // 크롬 호환성: 트랜잭션 완료 후 데이터베이스 연결을 닫고 다시 열어 최신 데이터 보장
+        if (this.db) {
+          console.log('🔄 데이터베이스 연결 재오픈 중...');
+          this.db.close();
+          this.db = null;
+          await this.initialize(true); // forceReopen으로 최신 데이터 보장
+        }
+        
         // 트랜잭션 완료 후 약간의 지연을 두고 확인 (IndexedDB 커밋 보장)
-        setTimeout(() => {
-          const verifyTransaction = this.db!.transaction(['users'], 'readonly');
-          const verifyStore = verifyTransaction.objectStore('users');
-          const verifyRequest = verifyStore.getAll();
+        await new Promise(resolve => setTimeout(resolve, 200)); // 200ms 지연
+        
+        const verifyTransaction = this.db!.transaction(['users'], 'readonly');
+        const verifyStore = verifyTransaction.objectStore('users');
+        const verifyRequest = verifyStore.getAll();
+        
+        verifyRequest.onsuccess = () => {
+          const users = verifyRequest.result as User[];
+          const updatedUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
           
-          verifyRequest.onsuccess = () => {
-            const users = verifyRequest.result as User[];
-            const updatedUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
-            
-            if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
-              console.log('✅ 비밀번호 업데이트 확인 완료');
-              console.log('🔐 확인된 해시:', updatedUser.passwordHash.substring(0, 30) + '...');
-              resolve();
+          if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
+            console.log('✅ 비밀번호 업데이트 확인 완료');
+            console.log('🔐 확인된 해시:', updatedUser.passwordHash.substring(0, 30) + '...');
+            resolve();
+          } else {
+            console.error('❌ 비밀번호 업데이트 확인 실패');
+            console.error('❌ 예상 해시:', newPasswordHash.substring(0, 30) + '...');
+            if (updatedUser) {
+              console.error('❌ 실제 해시:', updatedUser.passwordHash ? updatedUser.passwordHash.substring(0, 30) + '...' : 'NULL');
+              console.error('❌ 실제 해시 전체:', updatedUser.passwordHash || 'NULL');
             } else {
-              console.error('❌ 비밀번호 업데이트 확인 실패');
-              console.error('❌ 예상 해시:', newPasswordHash.substring(0, 30) + '...');
-              if (updatedUser) {
-                console.error('❌ 실제 해시:', updatedUser.passwordHash ? updatedUser.passwordHash.substring(0, 30) + '...' : 'NULL');
-                console.error('❌ 실제 해시 전체:', updatedUser.passwordHash || 'NULL');
-              } else {
-                console.error('❌ 사용자를 찾을 수 없습니다');
-              }
-              reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
+              console.error('❌ 사용자를 찾을 수 없습니다');
             }
-          };
-          
-          verifyRequest.onerror = () => {
-            console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
-            reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
-          };
-        }, 100); // 100ms 지연으로 IndexedDB 커밋 보장
+            reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
+          }
+        };
+        
+        verifyRequest.onerror = () => {
+          console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
+          reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
+        };
       };
       
       transaction.onerror = () => {
