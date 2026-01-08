@@ -39,6 +39,12 @@ export class IndexedDBDatabase {
   private db: IDBDatabase | null = null;
 
   async initialize(): Promise<void> {
+    // 이미 초기화되어 있고 연결이 유효한 경우 바로 반환 (크롬 호환성 개선)
+    if (this.db && this.db.objectStoreNames.length > 0) {
+      console.log('✅ IndexedDB 이미 초기화됨, 재사용');
+      return Promise.resolve();
+    }
+    
     return new Promise((resolve, reject) => {
       console.log('🗄️ IndexedDB 초기화 시작...');
       const request = indexedDB.open(this.dbName, this.version);
@@ -51,6 +57,17 @@ export class IndexedDBDatabase {
       request.onsuccess = () => {
         this.db = request.result;
         console.log('✅ IndexedDB 초기화 완료');
+        
+        // 크롬 호환성을 위해 연결이 닫히지 않도록 이벤트 리스너 추가
+        this.db.onclose = () => {
+          console.warn('⚠️ IndexedDB 연결이 닫혔습니다. 재초기화가 필요할 수 있습니다.');
+          this.db = null;
+        };
+        
+        this.db.onerror = () => {
+          console.error('❌ IndexedDB 오류 발생');
+        };
+        
         resolve();
       };
 

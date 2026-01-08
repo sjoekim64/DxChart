@@ -129,10 +129,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       // 일반 사용자 로그인 처리
-      // 데이터베이스 초기화 보장
-      console.log('🗄️ 데이터베이스 초기화 확인 중...');
-      await database.initialize();
-      console.log('✅ 데이터베이스 초기화 완료');
+      // 데이터베이스 초기화는 loginUser 내부에서 처리 (크롬 호환성 개선)
+      console.log('🗄️ 로그인 처리 시작...');
       
       const result = await database.loginUser(credentials);
       
