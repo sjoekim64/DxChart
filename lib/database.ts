@@ -249,10 +249,12 @@ export class IndexedDBDatabase {
 
   // 사용자 로그인
   async loginUser(credentials: { username: string; password: string }): Promise<{ user: User; token: string }> {
-    // 데이터베이스 초기화 보장
-    if (!this.db) {
+    // 데이터베이스 초기화 보장 (크롬 호환성: 연결이 유효한지 확인)
+    if (!this.db || this.db.objectStoreNames.length === 0) {
       console.log('🗄️ 로그인 시 데이터베이스 초기화 중...');
       await this.initialize();
+    } else {
+      console.log('✅ 데이터베이스 연결 확인됨');
     }
     
     // 대소문자 구분 없이 검색 - getAll()을 사용하여 iPad Safari 호환성 개선
