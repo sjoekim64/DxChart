@@ -254,26 +254,41 @@ export class IndexedDBDatabase {
       request.onsuccess = async () => {
         try {
           const users = request.result as User[];
+          console.log('🔍 전체 사용자 목록:', users.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
+          
           const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
           
           if (!foundUser) {
             console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
+            console.error('  - 검색한 사용자명 (소문자):', normalizedUsername);
+            console.error('  - 전체 사용자명 목록:', users.map(u => u.username));
             reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
             return;
           }
 
+          console.log('✅ 사용자 찾음:', {
+            username: foundUser.username,
+            id: foundUser.id,
+            storedHashLength: foundUser.passwordHash?.length || 0,
+            storedHashPreview: foundUser.passwordHash ? foundUser.passwordHash.substring(0, 30) + '...' : 'NULL',
+            storedHashFull: foundUser.passwordHash || 'NULL'
+          });
+
           // 비밀번호 검증
           console.log('🔐 비밀번호 검증 시작:', {
             username: foundUser.username,
-            storedHashLength: foundUser.passwordHash.length,
-            storedHashPreview: foundUser.passwordHash.substring(0, 20) + '...'
+            inputPasswordLength: credentials.password.length,
+            storedHashLength: foundUser.passwordHash?.length || 0,
+            storedHashPreview: foundUser.passwordHash ? foundUser.passwordHash.substring(0, 30) + '...' : 'NULL'
           });
           
           const isValidPassword = await this.verifyPassword(credentials.password, foundUser.passwordHash);
           if (!isValidPassword) {
             console.error('❌ 비밀번호가 올바르지 않습니다.');
             console.error('  - 사용자명:', foundUser.username);
-            console.error('  - 저장된 해시 전체 길이:', foundUser.passwordHash.length);
+            console.error('  - 입력 비밀번호 길이:', credentials.password.length);
+            console.error('  - 저장된 해시 전체 길이:', foundUser.passwordHash?.length || 0);
+            console.error('  - 저장된 해시 전체:', foundUser.passwordHash || 'NULL');
             reject(new Error('비밀번호가 올바르지 않습니다.'));
             return;
           }
@@ -745,15 +760,49 @@ export class IndexedDBDatabase {
   }
 
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
+    if (!hash || hash.length === 0) {
+      console.error('❌ 저장된 해시가 비어있습니다!');
+      return false;
+    }
+    
     const passwordHash = await this.hashPassword(password);
     const isMatch = passwordHash === hash;
     
-    // 디버깅을 위한 로그 (프로덕션에서는 제거 가능)
+    // 디버깅을 위한 상세 로그
+    console.log('🔐 비밀번호 검증 상세:');
+    console.log('  - 입력 비밀번호 길이:', password.length);
+    console.log('  - 입력 비밀번호 해시 길이:', passwordHash.length);
+    console.log('  - 저장된 해시 길이:', hash.length);
+    console.log('  - 입력 해시 (처음 30자):', passwordHash.substring(0, 30));
+    console.log('  - 저장 해시 (처음 30자):', hash.substring(0, 30));
+    console.log('  - 입력 해시 (전체):', passwordHash);
+    console.log('  - 저장 해시 (전체):', hash);
+    console.log('  - 해시 일치 여부:', isMatch);
+    
     if (!isMatch) {
-      console.log('🔐 비밀번호 검증 실패:');
-      console.log('  - 입력 비밀번호 해시 (처음 20자):', passwordHash.substring(0, 20));
-      console.log('  - 저장된 해시 (처음 20자):', hash.substring(0, 20));
-      console.log('  - 해시 길이 비교:', passwordHash.length, 'vs', hash.length);
+      console.error('❌ 비밀번호 검증 실패!');
+      // 해시의 각 문자를 비교하여 어디서 다른지 확인
+      if (passwordHash.length === hash.length) {
+        let diffCount = 0;
+        const diffPositions: number[] = [];
+        for (let i = 0; i < Math.min(passwordHash.length, hash.length); i++) {
+          if (passwordHash[i] !== hash[i]) {
+            diffCount++;
+            if (diffCount <= 10) {
+              diffPositions.push(i);
+              console.error(`  - 위치 ${i}: 입력='${passwordHash[i]}', 저장='${hash[i]}'`);
+            }
+          }
+        }
+        console.error(`  - 총 ${diffCount}개 위치에서 차이 발견`);
+        if (diffPositions.length > 0) {
+          console.error('  - 차이 위치:', diffPositions.slice(0, 10));
+        }
+      } else {
+        console.error('  - 해시 길이가 다릅니다!');
+        console.error('    입력 해시 길이:', passwordHash.length);
+        console.error('    저장 해시 길이:', hash.length);
+      }
     } else {
       console.log('✅ 비밀번호 검증 성공');
     }
