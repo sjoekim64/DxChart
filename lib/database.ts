@@ -273,27 +273,30 @@ export class IndexedDBDatabase {
       const store = transaction.objectStore('users');
       const request = store.getAll();
       
-      request.onsuccess = async () => {
+      // 크롬 호환성: 트랜잭션 완료를 명시적으로 대기
+      let usersData: User[] | null = null;
+      
+      request.onsuccess = () => {
+        usersData = request.result as User[];
+        console.log('📦 사용자 데이터 로드 완료, 트랜잭션 완료 대기 중...');
+      };
+      
+      transaction.oncomplete = async () => {
         try {
-          // 크롬 호환성: 트랜잭션이 완전히 완료될 때까지 약간의 지연
-          await new Promise(resolve => {
-            if (transaction.mode === 'readonly' && transaction.objectStoreNames.length > 0) {
-              transaction.oncomplete = () => resolve(undefined);
-              transaction.onerror = () => resolve(undefined);
-            } else {
-              resolve(undefined);
-            }
-          });
+          if (!usersData) {
+            console.error('❌ 사용자 데이터를 가져오지 못했습니다.');
+            reject(new Error('사용자 데이터를 가져오는데 실패했습니다.'));
+            return;
+          }
           
-          const users = request.result as User[];
-          console.log('🔍 전체 사용자 목록:', users.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
+          console.log('🔍 전체 사용자 목록:', usersData.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
           
-          const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
+          const foundUser = usersData.find(user => user.username.toLowerCase() === normalizedUsername);
           
           if (!foundUser) {
             console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
             console.error('  - 검색한 사용자명 (소문자):', normalizedUsername);
-            console.error('  - 전체 사용자명 목록:', users.map(u => u.username));
+            console.error('  - 전체 사용자명 목록:', usersData.map(u => u.username));
             reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
             return;
           }
