@@ -120,24 +120,27 @@ export class IndexedDBDatabase {
       await this.initialize();
     }
     
-    // 대소문자 구분 없이 검색하기 위해 모든 사용자를 순회
+    // 대소문자 구분 없이 검색 - getAll()을 사용하여 iPad Safari 호환성 개선
+    const normalizedUsername = username.toLowerCase();
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['users'], 'readonly');
+      if (!this.db) {
+        reject(new Error('데이터베이스가 초기화되지 않았습니다.'));
+        return;
+      }
+      
+      const transaction = this.db.transaction(['users'], 'readonly');
       const store = transaction.objectStore('users');
-      const request = store.openCursor();
-      const normalizedUsername = username.toLowerCase();
+      const request = store.getAll();
       
       request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          const user = cursor.value as User;
-          if (user.username.toLowerCase() === normalizedUsername) {
-            resolve(user);
-            return;
-          }
-          cursor.continue();
-        } else {
-          resolve(null);
+        try {
+          const users = request.result as User[];
+          const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
+          resolve(foundUser || null);
+        } catch (error) {
+          console.error('❌ 사용자 조회 중 오류:', error);
+          reject(new Error('사용자 조회 중 오류가 발생했습니다.'));
         }
       };
       
@@ -223,43 +226,50 @@ export class IndexedDBDatabase {
       await this.initialize();
     }
     
-    const store = await this.getStore('users');
-    
-    // 대소문자 구분 없이 검색
+    // 대소문자 구분 없이 검색 - getAll()을 사용하여 iPad Safari 호환성 개선
     const normalizedUsername = credentials.username.toLowerCase();
     
     return new Promise((resolve, reject) => {
-      const request = store.openCursor();
+      if (!this.db) {
+        reject(new Error('데이터베이스가 초기화되지 않았습니다.'));
+        return;
+      }
+      
+      const transaction = this.db.transaction(['users'], 'readonly');
+      const store = transaction.objectStore('users');
+      const request = store.getAll();
       
       request.onsuccess = async () => {
-        const cursor = request.result;
-        if (cursor) {
-          const user = cursor.value as User;
-          if (user.username.toLowerCase() === normalizedUsername) {
-            // 사용자명을 찾았으므로 비밀번호 검증 진행
-            const isValidPassword = await this.verifyPassword(credentials.password, user.passwordHash);
-            if (!isValidPassword) {
-              console.error('❌ 비밀번호가 올바르지 않습니다.');
-              reject(new Error('비밀번호가 올바르지 않습니다.'));
-              return;
-            }
-
-            if (!user.isApproved) {
-              console.warn('⚠️ 사용자가 아직 승인되지 않았습니다:', user.username);
-              reject(new Error('관리자 승인을 기다리고 있습니다. 승인 후 로그인할 수 있습니다.'));
-              return;
-            }
-
-            const token = this.generateToken(user);
-            console.log('✅ 로그인 성공:', user.username);
-            resolve({ user, token });
+        try {
+          const users = request.result as User[];
+          const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
+          
+          if (!foundUser) {
+            console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
+            reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
             return;
           }
-          cursor.continue();
-        } else {
-          // 모든 사용자를 확인했지만 일치하는 사용자를 찾지 못함
-          console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
-          reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
+
+          // 비밀번호 검증
+          const isValidPassword = await this.verifyPassword(credentials.password, foundUser.passwordHash);
+          if (!isValidPassword) {
+            console.error('❌ 비밀번호가 올바르지 않습니다.');
+            reject(new Error('비밀번호가 올바르지 않습니다.'));
+            return;
+          }
+
+          if (!foundUser.isApproved) {
+            console.warn('⚠️ 사용자가 아직 승인되지 않았습니다:', foundUser.username);
+            reject(new Error('관리자 승인을 기다리고 있습니다. 승인 후 로그인할 수 있습니다.'));
+            return;
+          }
+
+          const token = this.generateToken(foundUser);
+          console.log('✅ 로그인 성공:', foundUser.username);
+          resolve({ user: foundUser, token });
+        } catch (error) {
+          console.error('❌ 로그인 처리 중 오류:', error);
+          reject(new Error('로그인 처리 중 오류가 발생했습니다.'));
         }
       };
       
@@ -267,9 +277,12 @@ export class IndexedDBDatabase {
         console.error('❌ 로그인 실패:', event);
         reject(new Error('로그인 중 오류가 발생했습니다. 데이터베이스를 확인해주세요.'));
       };
+      
+      transaction.onerror = (event) => {
+        console.error('❌ 트랜잭션 오류:', event);
+        reject(new Error('데이터베이스 트랜잭션 오류가 발생했습니다.'));
+      };
     });
-    
-    // 기존 코드 제거 (중복된 비밀번호 검증 로직)
 
         const isValidPassword = await this.verifyPassword(credentials.password, user.passwordHash);
         if (!isValidPassword) {
