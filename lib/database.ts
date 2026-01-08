@@ -895,70 +895,80 @@ export class IndexedDBDatabase {
       await this.initialize();
     }
     
+    // 먼저 비밀번호 해시 생성
+    const newPasswordHash = await this.hashPassword(newPassword);
+    console.log('🔐 새 비밀번호 해시 생성 완료:', username);
+    
+    // 대소문자 구분 없이 사용자 검색
+    const normalizedUsername = username.toLowerCase();
+    
     return new Promise(async (resolve, reject) => {
-      // 먼저 비밀번호 해시 생성
-      const newPasswordHash = await this.hashPassword(newPassword);
-      console.log('🔐 새 비밀번호 해시 생성 완료:', username);
-      
       const transaction = this.db!.transaction(['users'], 'readwrite');
       const store = transaction.objectStore('users');
-      const index = store.index('username');
-      const request = index.get(username);
+      const request = store.getAll();
       
       request.onsuccess = () => {
-        const user = request.result;
-        if (!user) {
-          reject(new Error('사용자를 찾을 수 없습니다.'));
-          return;
+        try {
+          const users = request.result as User[];
+          const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
+          
+          if (!foundUser) {
+            console.error('❌ 사용자를 찾을 수 없습니다:', username);
+            reject(new Error('사용자를 찾을 수 없습니다.'));
+            return;
+          }
+          
+          console.log('👤 기존 사용자 찾음:', foundUser.username);
+          console.log('🔐 기존 비밀번호 해시:', foundUser.passwordHash.substring(0, 20) + '...');
+          
+          // 새 비밀번호 해시로 업데이트
+          foundUser.passwordHash = newPasswordHash;
+          console.log('🔐 새 비밀번호 해시로 업데이트:', newPasswordHash.substring(0, 20) + '...');
+          
+          const updateRequest = store.put(foundUser);
+          updateRequest.onsuccess = () => {
+            console.log('✅ 사용자 비밀번호가 업데이트되었습니다:', foundUser.username);
+            
+            // 업데이트 확인을 위해 다시 조회 (대소문자 구분 없이)
+            const verifyTransaction = this.db!.transaction(['users'], 'readonly');
+            const verifyStore = verifyTransaction.objectStore('users');
+            const verifyRequest = verifyStore.getAll();
+            
+            verifyRequest.onsuccess = () => {
+              const users = verifyRequest.result as User[];
+              const updatedUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
+              
+              if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
+                console.log('✅ 비밀번호 업데이트 확인 완료');
+                resolve();
+              } else {
+                console.error('❌ 비밀번호 업데이트 확인 실패');
+                console.error('❌ 예상 해시:', newPasswordHash.substring(0, 20) + '...');
+                if (updatedUser) {
+                  console.error('❌ 실제 해시:', updatedUser.passwordHash.substring(0, 20) + '...');
+                }
+                reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
+              }
+            };
+            
+            verifyRequest.onerror = () => {
+              console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
+              reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
+            };
+          };
+          
+          updateRequest.onerror = (event) => {
+            console.error('❌ 비밀번호 업데이트 실패:', event);
+            reject(new Error('비밀번호 업데이트에 실패했습니다.'));
+          };
+        } catch (error) {
+          console.error('❌ 비밀번호 업데이트 처리 중 오류:', error);
+          reject(new Error('비밀번호 업데이트 처리 중 오류가 발생했습니다.'));
         }
-        
-        console.log('👤 기존 사용자 찾음:', user.username);
-        console.log('🔐 기존 비밀번호 해시:', user.passwordHash.substring(0, 20) + '...');
-        
-        // 새 비밀번호 해시로 업데이트
-        user.passwordHash = newPasswordHash;
-        console.log('🔐 새 비밀번호 해시로 업데이트:', newPasswordHash.substring(0, 20) + '...');
-        
-        const updateRequest = store.put(user);
-        updateRequest.onsuccess = () => {
-          console.log('✅ 사용자 비밀번호가 업데이트되었습니다:', username);
-          
-          // 업데이트 확인을 위해 다시 조회
-          const verifyTransaction = this.db!.transaction(['users'], 'readonly');
-          const verifyStore = verifyTransaction.objectStore('users');
-          const verifyIndex = verifyStore.index('username');
-          const verifyRequest = verifyIndex.get(username);
-          
-          verifyRequest.onsuccess = async () => {
-            const updatedUser = verifyRequest.result;
-            if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
-              console.log('✅ 비밀번호 업데이트 확인 완료');
-              resolve();
-            } else {
-              console.error('❌ 비밀번호 업데이트 확인 실패');
-              reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
-            }
-          };
-          
-          verifyRequest.onerror = () => {
-            console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
-            reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
-          };
-        };
-        
-        updateRequest.onerror = (event) => {
-          console.error('❌ 비밀번호 업데이트 실패:', event);
-          reject(new Error('비밀번호 업데이트에 실패했습니다.'));
-        };
       };
       
       request.onerror = () => {
         reject(new Error('사용자 정보를 가져오는데 실패했습니다.'));
-      };
-      
-      // 트랜잭션 완료 대기
-      transaction.oncomplete = () => {
-        console.log('✅ 트랜잭션 완료');
       };
       
       transaction.onerror = () => {
