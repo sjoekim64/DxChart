@@ -273,39 +273,22 @@ export class IndexedDBDatabase {
       const store = transaction.objectStore('users');
       const request = store.getAll();
       
-      // 크롬 호환성: 트랜잭션 완료를 명시적으로 대기
-      let usersData: User[] | null = null;
-      let transactionCompleted = false;
-      
-      request.onsuccess = () => {
-        usersData = request.result as User[];
-        console.log('📦 사용자 데이터 로드 완료:', usersData.length, '명');
-        console.log('📦 트랜잭션 완료 대기 중...');
-      };
-      
-      request.onerror = (event) => {
-        console.error('❌ 사용자 데이터 로드 실패:', event);
-        reject(new Error('사용자 데이터를 로드하는데 실패했습니다.'));
-      };
-      
-      transaction.oncomplete = async () => {
-        console.log('✅ 트랜잭션 완료, 로그인 처리 시작...');
-        transactionCompleted = true;
+      // 크롬 호환성: request.onsuccess에서 직접 처리하되, 약간의 지연을 두어 최신 데이터 보장
+      request.onsuccess = async () => {
         try {
-          if (!usersData) {
-            console.error('❌ 사용자 데이터를 가져오지 못했습니다.');
-            reject(new Error('사용자 데이터를 가져오는데 실패했습니다.'));
-            return;
-          }
+          // 크롬 호환성: 트랜잭션이 완전히 커밋될 때까지 약간의 지연
+          await new Promise(resolve => setTimeout(resolve, 50));
           
-          console.log('🔍 전체 사용자 목록:', usersData.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
+          const users = request.result as User[];
+          console.log('📦 사용자 데이터 로드 완료:', users.length, '명');
+          console.log('🔍 전체 사용자 목록:', users.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
           
-          const foundUser = usersData.find(user => user.username.toLowerCase() === normalizedUsername);
+          const foundUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
           
           if (!foundUser) {
             console.error('❌ 사용자를 찾을 수 없습니다:', credentials.username);
             console.error('  - 검색한 사용자명 (소문자):', normalizedUsername);
-            console.error('  - 전체 사용자명 목록:', usersData.map(u => u.username));
+            console.error('  - 전체 사용자명 목록:', users.map(u => u.username));
             reject(new Error('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.'));
             return;
           }
@@ -365,14 +348,6 @@ export class IndexedDBDatabase {
         });
         reject(new Error('데이터베이스 트랜잭션 오류가 발생했습니다.'));
       };
-      
-      // 크롬 호환성: 트랜잭션이 완료되지 않으면 타임아웃 처리
-      setTimeout(() => {
-        if (!transactionCompleted && usersData === null) {
-          console.error('❌ 트랜잭션 타임아웃: 트랜잭션이 완료되지 않았습니다.');
-          reject(new Error('데이터베이스 트랜잭션이 시간 초과되었습니다. 다시 시도해주세요.'));
-        }
-      }, 5000); // 5초 타임아웃
     });
   }
 
