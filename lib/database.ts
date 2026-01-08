@@ -266,14 +266,22 @@ export class IndexedDBDatabase {
         return;
       }
       
-      // 크롬 호환성: 트랜잭션 완료를 명시적으로 대기
       const transaction = this.db.transaction(['users'], 'readonly');
       const store = transaction.objectStore('users');
       const request = store.getAll();
       
-      // 트랜잭션이 완료된 후 처리 (크롬 호환성)
-      transaction.oncomplete = async () => {
+      request.onsuccess = async () => {
         try {
+          // 크롬 호환성: 트랜잭션이 완전히 완료될 때까지 약간의 지연
+          await new Promise(resolve => {
+            if (transaction.mode === 'readonly' && transaction.objectStoreNames.length > 0) {
+              transaction.oncomplete = () => resolve(undefined);
+              transaction.onerror = () => resolve(undefined);
+            } else {
+              resolve(undefined);
+            }
+          });
+          
           const users = request.result as User[];
           console.log('🔍 전체 사용자 목록:', users.map(u => ({ username: u.username, hashLength: u.passwordHash?.length || 0 })));
           
