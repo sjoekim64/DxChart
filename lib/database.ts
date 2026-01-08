@@ -181,6 +181,11 @@ export class IndexedDBDatabase {
     
     const userId = this.generateId();
     const passwordHash = await this.hashPassword(userData.password);
+    console.log('🔐 생성된 비밀번호 해시:', {
+      length: passwordHash.length,
+      preview: passwordHash.substring(0, 20) + '...',
+      fullHash: passwordHash
+    });
     
     const user: User = {
       id: userId,
@@ -192,7 +197,10 @@ export class IndexedDBDatabase {
       createdAt: new Date().toISOString(),
       isApproved: false, // 승인 대기 상태
     };
-    console.log('👤 생성된 사용자 객체:', user);
+    console.log('👤 생성된 사용자 객체:', {
+      ...user,
+      passwordHash: user.passwordHash.substring(0, 20) + '...'
+    });
 
     const store = await this.getStore('users', 'readwrite');
     
@@ -201,6 +209,10 @@ export class IndexedDBDatabase {
       
       request.onsuccess = () => {
         console.log('✅ 사용자 데이터베이스 저장 성공');
+        console.log('🔐 저장된 비밀번호 해시 확인:', {
+          length: user.passwordHash.length,
+          preview: user.passwordHash.substring(0, 20) + '...'
+        });
         const token = this.generateToken(user);
         console.log('🔑 생성된 토큰:', token);
         resolve({ user, token });
@@ -251,9 +263,17 @@ export class IndexedDBDatabase {
           }
 
           // 비밀번호 검증
+          console.log('🔐 비밀번호 검증 시작:', {
+            username: foundUser.username,
+            storedHashLength: foundUser.passwordHash.length,
+            storedHashPreview: foundUser.passwordHash.substring(0, 20) + '...'
+          });
+          
           const isValidPassword = await this.verifyPassword(credentials.password, foundUser.passwordHash);
           if (!isValidPassword) {
             console.error('❌ 비밀번호가 올바르지 않습니다.');
+            console.error('  - 사용자명:', foundUser.username);
+            console.error('  - 저장된 해시 전체 길이:', foundUser.passwordHash.length);
             reject(new Error('비밀번호가 올바르지 않습니다.'));
             return;
           }
@@ -726,7 +746,19 @@ export class IndexedDBDatabase {
 
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     const passwordHash = await this.hashPassword(password);
-    return passwordHash === hash;
+    const isMatch = passwordHash === hash;
+    
+    // 디버깅을 위한 로그 (프로덕션에서는 제거 가능)
+    if (!isMatch) {
+      console.log('🔐 비밀번호 검증 실패:');
+      console.log('  - 입력 비밀번호 해시 (처음 20자):', passwordHash.substring(0, 20));
+      console.log('  - 저장된 해시 (처음 20자):', hash.substring(0, 20));
+      console.log('  - 해시 길이 비교:', passwordHash.length, 'vs', hash.length);
+    } else {
+      console.log('✅ 비밀번호 검증 성공');
+    }
+    
+    return isMatch;
   }
 
   private generateToken(user: User): string {
