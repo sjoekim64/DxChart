@@ -276,8 +276,9 @@ export class IndexedDBDatabase {
       // 크롬 호환성: request.onsuccess에서 직접 처리하되, 약간의 지연을 두어 최신 데이터 보장
       request.onsuccess = async () => {
         try {
-          // 크롬 호환성: 트랜잭션이 완전히 커밋될 때까지 약간의 지연
-          await new Promise(resolve => setTimeout(resolve, 50));
+          // 크롬 호환성: 트랜잭션이 완전히 커밋될 때까지 충분한 지연 (비밀번호 업데이트 후 최신 데이터 보장)
+          // 비밀번호 업데이트 후 200ms 지연이 있으므로, 로그인 시에도 충분한 지연 필요
+          await new Promise(resolve => setTimeout(resolve, 300));
           
           const users = request.result as User[];
           console.log('📦 사용자 데이터 로드 완료:', users.length, '명');

@@ -320,6 +320,9 @@ export const initializeTestUser = async () => {
         await database.updateUserPassword('sjoekim', testUserData.password);
         console.log('✅ 비밀번호 업데이트 완료');
         
+        // 크롬 호환성: 비밀번호 업데이트 후 충분한 지연 (IndexedDB 커밋 보장)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // 비밀번호 업데이트 확인을 위해 사용자 정보 다시 조회
         const updatedUser = await database.getUserByUsername('sjoekim');
         if (updatedUser) {
