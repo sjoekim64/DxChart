@@ -985,33 +985,8 @@ export class IndexedDBDatabase {
           const updateRequest = store.put(foundUser);
           updateRequest.onsuccess = () => {
             console.log('✅ 사용자 비밀번호가 업데이트되었습니다:', foundUser.username);
-            
-            // 업데이트 확인을 위해 다시 조회 (대소문자 구분 없이)
-            const verifyTransaction = this.db!.transaction(['users'], 'readonly');
-            const verifyStore = verifyTransaction.objectStore('users');
-            const verifyRequest = verifyStore.getAll();
-            
-            verifyRequest.onsuccess = () => {
-              const users = verifyRequest.result as User[];
-              const updatedUser = users.find(user => user.username.toLowerCase() === normalizedUsername);
-              
-              if (updatedUser && updatedUser.passwordHash === newPasswordHash) {
-                console.log('✅ 비밀번호 업데이트 확인 완료');
-                resolve();
-              } else {
-                console.error('❌ 비밀번호 업데이트 확인 실패');
-                console.error('❌ 예상 해시:', newPasswordHash.substring(0, 20) + '...');
-                if (updatedUser) {
-                  console.error('❌ 실제 해시:', updatedUser.passwordHash.substring(0, 20) + '...');
-                }
-                reject(new Error('비밀번호 업데이트 확인에 실패했습니다.'));
-              }
-            };
-            
-            verifyRequest.onerror = () => {
-              console.error('❌ 비밀번호 업데이트 확인 중 오류 발생');
-              reject(new Error('비밀번호 업데이트 확인 중 오류가 발생했습니다.'));
-            };
+            console.log('🔐 업데이트된 해시:', newPasswordHash.substring(0, 30) + '...');
+            // 확인은 transaction.oncomplete에서 수행
           };
           
           updateRequest.onerror = (event) => {
