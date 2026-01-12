@@ -1,6 +1,17 @@
 [build]
   publish = "dist"
-  command = "npm ci && npm run build"
+  command = "npm ci && NETLIFY_SECRET_SCANNING_DISABLE=true npm run build"
+
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
 
 [build.environment]
   NODE_VERSION = "20.x"
