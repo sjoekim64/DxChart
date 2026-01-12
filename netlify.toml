@@ -18,6 +18,7 @@
   NPM_FLAGS = "--prefer-offline --no-audit"
   CI = "true"
   ROLLUP_IGNORE_NATIVE = "true"
+  NETLIFY_SECRET_SCANNING_DISABLE = "true"
   # Environment variables for build (set these in Netlify dashboard)
   GEMINI_API_KEY = ""
   EMAILJS_SERVICE_ID = ""
