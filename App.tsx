@@ -195,6 +195,24 @@ const PatientChartApp: React.FC = () => {
       
       // 환자 데이터 로드
       const charts = await database.getPatientCharts(user.id);
+      
+      // 개발 모드에서만 디버깅 정보 출력
+      if (import.meta.env.DEV) {
+        console.log('📊 로드된 차트 개수:', charts.length, `(사용자: ${user.username}, ID: ${user.id})`);
+        
+        if (charts.length === 0) {
+          console.warn('⚠️ 저장된 차트가 없습니다.');
+          // 디버깅: 모든 사용자의 차트 확인
+          const allUsers = await database.getAllUsers();
+          const allCharts = await database.getAllCharts();
+          console.log('🔍 디버깅 정보:', {
+            전체사용자수: allUsers.length,
+            전체차트수: allCharts.length,
+            사용자별차트: allUsers.map(u => ({ username: u.username, id: u.id }))
+          });
+        }
+      }
+      
       const patientData = charts.map(chart => JSON.parse(chart.chartData));
       setPatients(patientData);
 
@@ -250,6 +268,23 @@ const PatientChartApp: React.FC = () => {
   const handleFormSubmit = async (data: PatientData) => {
     if (!user) return;
     
+    // 재방문 차트인 경우 날짜 확인 및 로그
+    if (data.chartType === 'follow-up') {
+      console.log('💾 재방문 차트 저장 - 날짜 확인:', {
+        fileNo: data.fileNo,
+        name: data.name,
+        저장날짜: data.date,
+        chartType: data.chartType
+      });
+      
+      // 날짜가 없거나 이전 날짜인 경우 오늘 날짜로 설정
+      if (!data.date || data.date === '') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        console.log('⚠️ 날짜가 없어서 오늘 날짜로 설정:', todayDate);
+        data.date = todayDate;
+      }
+    }
+    
     // 클리닉 정보 저장
     try {
         const infoToStore = {
@@ -266,6 +301,11 @@ const PatientChartApp: React.FC = () => {
     
     // 환자 데이터 저장 - 항상 새로운 차트로 저장 (기존 차트는 덮어쓰지 않음)
     try {
+      console.log('💾 차트 저장 전 최종 확인:', {
+        fileNo: data.fileNo,
+        date: data.date,
+        chartType: data.chartType
+      });
       await database.savePatientChartAsNew(user.id, data);
       
       // 저장 후 모든 차트를 다시 로드하여 최신 상태 유지
@@ -384,10 +424,16 @@ const PatientChartApp: React.FC = () => {
       if (latestChart) {
         // 마지막 방문 차트의 데이터를 그대로 유지하되, 날짜만 오늘로 변경하고 chartType을 follow-up으로 변경
         // 재방문 시에는 환자의 변경사항이 거의 없으므로 대부분의 데이터를 유지
+        const todayDate = new Date().toISOString().split('T')[0];
+        console.log('📅 재방문 차트 생성 - 날짜 설정:', {
+          이전날짜: latestChart.date,
+          새날짜: todayDate,
+          fileNo: latestChart.fileNo
+        });
         const followUpChart: PatientData = {
           ...latestChart,
           chartType: 'follow-up',
-          date: new Date().toISOString().split('T')[0], // 오늘 날짜로 변경
+          date: todayDate, // 오늘 날짜로 변경
           // Chief Complaint는 유지하되, remark와 presentIllness만 초기화 (새로운 방문이므로)
           chiefComplaint: {
             ...latestChart.chiefComplaint,
@@ -441,6 +487,11 @@ const PatientChartApp: React.FC = () => {
       } else {
         // 차트가 없으면 기본 follow-up 차트 생성
         const baseFollowUp = getNewPatientState('follow-up', clinicInfo);
+        const todayDate = new Date().toISOString().split('T')[0];
+        console.log('📅 재방문 차트 생성 (기본) - 날짜 설정:', {
+          새날짜: todayDate,
+          fileNo: selectedPatient.fileNo
+        });
         setCurrentPatient({
           ...baseFollowUp,
           fileNo: selectedPatient.fileNo,
@@ -454,12 +505,18 @@ const PatientChartApp: React.FC = () => {
           heightFt: selectedPatient.heightFt,
           heightIn: selectedPatient.heightIn,
           weight: selectedPatient.weight,
+          date: todayDate, // 오늘 날짜로 명시적으로 설정
         });
       }
     } catch (error) {
       console.error('이전 차트 불러오기 실패:', error);
       // 에러 발생 시 기본 follow-up 차트 생성
       const baseFollowUp = getNewPatientState('follow-up', clinicInfo);
+      const todayDate = new Date().toISOString().split('T')[0];
+      console.log('📅 재방문 차트 생성 (에러 시) - 날짜 설정:', {
+        새날짜: todayDate,
+        fileNo: selectedPatient.fileNo
+      });
       setCurrentPatient({
         ...baseFollowUp,
         fileNo: selectedPatient.fileNo,
@@ -473,6 +530,7 @@ const PatientChartApp: React.FC = () => {
         heightFt: selectedPatient.heightFt,
         heightIn: selectedPatient.heightIn,
         weight: selectedPatient.weight,
+        date: todayDate, // 오늘 날짜로 명시적으로 설정
       });
     }
     

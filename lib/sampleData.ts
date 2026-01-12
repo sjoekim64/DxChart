@@ -317,16 +317,32 @@ export const initializeTestUser = async () => {
       // 테스트 사용자의 비밀번호를 항상 업데이트 (비밀번호가 변경되었을 수 있으므로)
       console.log('🔧 테스트 사용자 비밀번호 업데이트 중...');
       try {
+        // 데이터베이스 연결을 먼저 닫고 다시 열어서 최신 상태 보장
+        if (database['db']) {
+          database['db'].close();
+          database['db'] = null;
+        }
+        await database.initialize(true); // forceReopen
+        
         await database.updateUserPassword('sjoekim', testUserData.password);
         console.log('✅ 비밀번호 업데이트 완료');
         
         // 크롬 호환성: 비밀번호 업데이트 후 충분한 지연 (IndexedDB 커밋 보장)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1초로 증가
+        
+        // 데이터베이스 연결을 다시 닫고 열어서 최신 데이터 보장
+        if (database['db']) {
+          database['db'].close();
+          database['db'] = null;
+        }
+        await database.initialize(true);
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // 비밀번호 업데이트 확인을 위해 사용자 정보 다시 조회
         const updatedUser = await database.getUserByUsername('sjoekim');
         if (updatedUser) {
           console.log('✅ 사용자 정보 확인 완료:', updatedUser.username);
+          console.log('🔐 저장된 해시:', updatedUser.passwordHash.substring(0, 30) + '...');
         }
       } catch (error) {
         console.error('❌ 비밀번호 업데이트 실패:', error);

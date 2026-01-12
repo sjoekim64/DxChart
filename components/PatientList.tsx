@@ -65,10 +65,16 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
       return fileMatch || rawName.includes(query) || formattedName.includes(query);
     })
     .sort((a, b) => {
-      // 먼저 fileNo로 정렬, 그 다음 날짜로 정렬 (최신순)
-      const fileNoCompare = (formatName(a.name || a.fileNo) || a.fileNo).localeCompare(formatName(b.name || b.fileNo) || b.fileNo);
-      if (fileNoCompare !== 0) return fileNoCompare;
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
+      // 먼저 방문일로 정렬 (최신순)
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      if (dateA !== dateB) {
+        return dateB - dateA; // 최신순 (내림차순)
+      }
+      // 같은 날짜면 fileNo로 정렬 (숫자 순서)
+      const fileNoA = parseInt(a.fileNo || '0', 10) || 0;
+      const fileNoB = parseInt(b.fileNo || '0', 10) || 0;
+      return fileNoA - fileNoB;
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / patientsPerPage) || 1);
@@ -124,13 +130,12 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
               placeholder="e.g., 0001, KIM, JOHN"
             />
           </div>
-          <div className="grid grid-cols-[1.2fr_2fr_1fr_1fr_1fr_1fr] text-sm font-semibold text-gray-700 border-b pb-2 mb-2">
-            <span>File No.</span>
-            <span>Last, First</span>
-            <span>Type</span>
+          <div className="grid grid-cols-[1fr_1.2fr_2fr_1fr_1fr_1fr] text-sm font-semibold text-gray-700 border-b pb-2 mb-2">
             <span>Visiting Date</span>
-            <span>View</span>
-            <span>Edit</span>
+            <span>File No.</span>
+            <span>Patient Name</span>
+            <span>View/Edit</span>
+            <span>Add</span>
             <span>Delete</span>
           </div>
           <div className="divide-y divide-gray-200">
@@ -139,28 +144,21 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 // 같은 fileNo와 date 조합으로 고유 키 생성
                 const uniqueKey = `${patient.fileNo}-${patient.date}-${index}`;
                 return (
-                  <div key={uniqueKey} className="grid grid-cols-[1.2fr_2fr_1fr_1fr_1fr_1fr_1fr] items-center py-3 text-sm">
+                  <div key={uniqueKey} className="grid grid-cols-[1fr_1.2fr_2fr_1fr_1fr_1fr] items-center py-3 text-sm">
+                    <span className="font-medium">{patient.date || 'N/A'}</span>
                     <span className="font-medium text-indigo-700">{patient.fileNo}</span>
                     <span className="truncate">{nameFormatted}</span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full w-fit ${
-                      patient.chartType === 'new' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {patient.chartType === 'new' ? 'New' : 'Follow-up'}
-                    </span>
-                    <span>{patient.date || 'N/A'}</span>
                     <button
                       onClick={() => handleViewClick(patient)}
                       className="px-3 py-1 bg-blue-200 text-blue-800 font-semibold rounded-lg hover:bg-blue-300 transition-colors duration-200 text-xs"
                     >
-                      View
+                      View/Edit
                     </button>
                     <button
                       onClick={() => handleEditClick(patient)}
                       className="px-3 py-1 bg-teal-200 text-teal-800 font-semibold rounded-lg hover:bg-teal-300 transition-colors duration-200 text-xs"
                     >
-                      Edit
+                      Add
                     </button>
                     <button
                       onClick={(e) => {

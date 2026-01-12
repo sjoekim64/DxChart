@@ -1,7 +1,6 @@
 
 import React from 'react';
 import type { PatientData } from '../types.ts';
-import OpenAI from 'openai';
 import html2pdf from 'html2pdf.js';
 
 interface PrintableViewProps {
@@ -101,9 +100,6 @@ const FullWidthRow: React.FC<{ label: string; value: React.ReactNode; isLast?: b
 
 
 export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGoToList }) => {
-  // SOAP note generation removed - will be in premium version
-  // const [soapNote, setSoapNote] = useState<string | null>(null);
-  // const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
   const isFollowUp = data.chartType === 'follow-up';
 
   const handlePrintPdf = () => {
@@ -204,219 +200,6 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
       // (브라우저에 따라 다를 수 있음)
     }, 250);
   };
-
-    // SOAP note generation removed - will be in premium version
-    /*const handleGenerateSoapNote = async () => {
-        setIsGeneratingSoap(true);
-        setSoapNote('Generating, please wait...');
-
-        // Construct a detailed summary of the patient chart
-        const chartSummary = `
-        Patient: ${data.name}, Age: ${data.age}, Sex: ${data.sex}
-        Date: ${data.date}
-        ---
-        CHIEF COMPLAINT:
-        ${[...data.chiefComplaint.selectedComplaints, data.chiefComplaint.otherComplaint].filter(Boolean).join(', ')}
-        
-        PRESENT ILLNESS (HPI):
-        ${data.chiefComplaint.presentIllness || 'N/A'}
-        ${isFollowUp && data.chiefComplaint.remark ? `\n\nFollow-up Notes / Changes:\n${data.chiefComplaint.remark}` : ''}
-        
-        REVIEW OF SYSTEMS SUMMARY:
-        ${rosItems.map(item => `- ${item.label}: ${typeof item.value === 'string' ? item.value : 'Complex data'}`).join('\n')}
-        
-        OBJECTIVE FINDINGS:
-        - Vitals: BP ${data.bpSystolic}/${data.bpDiastolic}, HR ${data.heartRate}, Temp ${data.temp}°F
-        - Tongue Body: ${[data.tongue.body.color, ...data.tongue.body.colorModifiers].join(', ')}, ${[data.tongue.body.shape, ...data.tongue.body.shapeModifiers].join(', ')}
-        - Tongue Coating: ${data.tongue.coating.color}, ${data.tongue.coating.quality.join(', ')}
-        - Pulse: Overall - ${data.pulse.overall.join(', ') || 'N/A'}. Notes: ${data.pulse.notes || 'N/A'}
-        
-        ASSESSMENT (DIAGNOSIS):
-        - TCM Diagnosis: ${data.diagnosisAndTreatment.tcmDiagnosis}
-        - Etiology: ${data.diagnosisAndTreatment.etiology}
-        - Eight Principles: ${Object.values(data.diagnosisAndTreatment.eightPrinciples).join(', ')}
-        
-        PLAN (TREATMENT):
-        - Principle: ${data.diagnosisAndTreatment.treatmentPrinciple}
-        - Acupuncture Points: ${data.diagnosisAndTreatment.acupuncturePoints}
-        - Herbal Treatment: ${data.diagnosisAndTreatment.herbalTreatment}
-        - Other Treatments: ${renderCombinedOtherTreatments()}
-        ${isFollowUp ? `\nRESPONSE TO PREVIOUS CARE:\n${renderRespondToCare()}` : ''}
-        `;
-
-        const prompt = `Based on the provided patient chart summary, generate a concise and professional SOAP note.
-
-        Chart Summary:
-        ${chartSummary}
-        
-        Instructions:
-        - IMPORTANT: Use the exact date provided in the chart summary: ${data.date}. Do NOT change or modify this date.
-        - S (Subjective): Synthesize the Chief Complaint, HPI, and relevant Review of Systems into a narrative. For follow-up visits, use the "Follow-up Notes / Changes" as the HPI.
-        - O (Objective): List the key objective findings like vitals and tongue/pulse diagnosis.
-        - A (Assessment): State the TCM Diagnosis clearly.
-        - P (Plan): Detail the treatment plan, including principles, acupuncture, herbs, and other modalities.
-        - The output should be plain text, clearly structured with S, O, A, P headings.
-        - Include the visit date at the beginning: "Visit Date: ${data.date}"`;
-
-        try {
-            const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-            if (!apiKey) {
-              throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
-            }
-            const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-            
-            // 재시도 로직
-            const maxRetries = 3;
-            const baseDelay = 2000; // 2초
-            let response;
-            let lastError;
-            
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    response = await openai.chat.completions.create({
-                        model: 'gpt-4o-mini',
-                        messages: [{ role: 'user', content: prompt }],
-                    });
-                    break; // 성공하면 루프 종료
-                } catch (error: any) {
-                    lastError = error;
-                    // OpenAI API 오류 코드 처리
-                    const isRetryableError = error?.status === 429 || // Rate limit
-                                           error?.status === 503 || // Server overload
-                                           error?.message?.includes('rate_limit') ||
-                                           error?.message?.includes('overloaded') ||
-                                           error?.message?.includes('503') ||
-                                           error?.message?.includes('429');
-                    
-                    // 할당량 초과(429)는 재시도하지 않음
-                    if (error?.status === 429) {
-                        throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
-                    }
-                    
-                    if (isRetryableError && attempt < maxRetries - 1) {
-                        const delay = baseDelay * Math.pow(2, attempt); // 지수 백오프: 2초, 4초, 8초
-                        
-                        // Retry-After 시간 파싱 (여러 방법 시도)
-                        let waitTime = delay;
-                        const retryInfo = error?.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
-                        
-                        if (retryInfo?.retryDelay) {
-                            // retryDelay가 문자열인 경우 (예: "24.23s" 또는 "24.23")
-                            const retryDelayStr = String(retryInfo.retryDelay);
-                            const match = retryDelayStr.match(/(\d+\.?\d*)/);
-                            if (match) {
-                                waitTime = parseFloat(match[1]) * 1000; // 초를 밀리초로 변환
-                            }
-                        } else if (error?.error?.message) {
-                            // 메시지에서 "Please retry in X.XXs" 패턴 찾기
-                            const messageMatch = error.error.message.match(/retry in ([\d.]+)s/i);
-                            if (messageMatch) {
-                                waitTime = parseFloat(messageMatch[1]) * 1000;
-                            }
-                        }
-                        
-                        // 최소 대기 시간 보장 (너무 짧으면 문제 발생 가능)
-                        waitTime = Math.max(waitTime, 1000);
-                        
-                        console.log(`⚠️ API 오류 발생. ${(waitTime / 1000).toFixed(1)}초 후 재시도... (${attempt + 1}/${maxRetries})`);
-                        setSoapNote(`API 오류 발생. ${(waitTime / 1000).toFixed(1)}초 후 재시도 중... (${attempt + 1}/${maxRetries})`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                        continue;
-                    } else {
-                        throw error; // 재시도 불가능하거나 최대 재시도 횟수 초과
-                    }
-                }
-            }
-            
-            if (!response) {
-                throw lastError || new Error('API 호출 실패');
-            }
-            
-            const generatedSoap = response.choices[0]?.message?.content?.trim() || '';
-            setSoapNote(generatedSoap);
-            
-            // SOAP 노트를 PDF로 저장 - 브라우저 인쇄 기능 사용 (텍스트 복사 가능)
-            const soapFileName = `${data.fileNo}_${data.name.replace(/\s/g, '_')}_SOAP.pdf`;
-            
-            // 인쇄용 창 생성
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                alert('팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.');
-                return;
-            }
-
-            // 스타일 복사
-            const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-              .map(style => style.outerHTML)
-              .join('\n');
-
-            printWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <title>${soapFileName}</title>
-                  ${styles}
-                  <style>
-                    @media print {
-                      @page { margin: 0.5in; }
-                      body { margin: 0; padding: 0; }
-                    }
-                    body {
-                      font-family: Arial, sans-serif;
-                      padding: 40px;
-                      background: white;
-                      color: black;
-                    }
-                    h1 {
-                      text-align: center;
-                      margin-bottom: 20px;
-                      font-size: 24px;
-                    }
-                    .patient-info {
-                      margin-bottom: 20px;
-                      font-size: 14px;
-                    }
-                    .soap-content {
-                      white-space: pre-wrap;
-                      line-height: 1.8;
-                      font-size: 12px;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <h1>SOAP Note</h1>
-                  <div class="patient-info">
-                    <strong>Patient:</strong> ${data.name}<br>
-                    <strong>File No:</strong> ${data.fileNo}<br>
-                    <strong>Date:</strong> ${data.date}
-                  </div>
-                  <div class="soap-content">${generatedSoap}</div>
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-            
-            setTimeout(() => {
-              printWindow.print();
-            }, 500);
-        } catch (error: any) {
-            console.error("Error generating SOAP note:", error);
-            
-            let errorMessage = "SOAP 노트 생성에 실패했습니다.";
-            if (error?.status === 429) {
-                errorMessage = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.";
-            } else if (error?.status === 503) {
-                errorMessage = "서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.";
-            } else if (error?.message) {
-                errorMessage = error.message;
-            }
-            
-            setSoapNote(`오류: ${errorMessage}`);
-        } finally {
-            setIsGeneratingSoap(false);
-        }
-    };*/
-
 
   const heightValue = [
     data.heightFt ? `${data.heightFt}'` : null,
@@ -943,9 +726,15 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
                     <div className="mt-8 text-sm space-y-8">
                         <div className="flex items-end space-x-4">
                         <span className="font-bold whitespace-nowrap">Patient's signature :</span>
-                        <div className="flex-grow border-b border-black min-h-[40px]"></div>
+                        {data.patientSignature ? (
+                          <div className="flex-grow border border-black min-h-[60px] flex items-center justify-center p-2">
+                            <img src={data.patientSignature} alt="Patient Signature" className="max-h-[50px] max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="flex-grow border-b border-black min-h-[40px]"></div>
+                        )}
                         <span className="font-bold whitespace-nowrap">Date :</span>
-                        <div className="w-40 border-b border-black"></div>
+                        <div className="w-40 border-b border-black text-center">{data.patientSignatureDate || data.date}</div>
                         </div>
                         <div className="flex items-end space-x-4">
                         <span className="font-bold whitespace-nowrap">Therapist Name:</span>
@@ -970,9 +759,15 @@ export const PrintableView: React.FC<PrintableViewProps> = ({ data, onEdit, onGo
                 <div className="mt-8 text-sm space-y-8">
                     <div className="flex items-end space-x-4">
                         <span className="font-bold whitespace-nowrap">Patient's signature :</span>
-                        <div className="flex-grow border-b border-black min-h-[40px]"></div>
+                        {data.patientSignature ? (
+                          <div className="flex-grow border border-black min-h-[60px] flex items-center justify-center p-2">
+                            <img src={data.patientSignature} alt="Patient Signature" className="max-h-[50px] max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="flex-grow border-b border-black min-h-[40px]"></div>
+                        )}
                         <span className="font-bold whitespace-nowrap">Date :</span>
-                        <div className="w-40 border-b border-black"></div>
+                        <div className="w-40 border-b border-black text-center">{data.patientSignatureDate || data.date}</div>
                     </div>
                     <div className="flex items-end space-x-4">
                         <span className="font-bold whitespace-nowrap">Therapist Name:</span>

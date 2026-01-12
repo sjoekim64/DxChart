@@ -860,6 +860,24 @@ export class IndexedDBDatabase {
     });
   }
 
+  // 모든 차트 조회 (디버깅용)
+  async getAllCharts(): Promise<PatientChart[]> {
+    const store = await this.getStore('patientCharts');
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+        const charts = request.result as PatientChart[];
+        resolve(charts);
+      };
+      
+      request.onerror = () => {
+        reject(new Error('모든 차트 조회 실패'));
+      };
+    });
+  }
+
   async getAllUsers(): Promise<User[]> {
     if (!this.db) throw new Error('데이터베이스가 초기화되지 않았습니다.');
     

@@ -265,4 +265,8 @@ export interface PatientData {
   rangeOfMotion: RangeOfMotionData;
   diagnosisAndTreatment: DiagnosisAndTreatmentData;
   respondToCare?: RespondToCareData;
+  patientSignature?: string; // Base64 이미지 데이터
+  patientSignatureDate?: string; // 서명 날짜
+  therapistSignature?: string; // Base64 이미지 데이터 (선택사항)
+  therapistSignatureDate?: string; // 치료사 서명 날짜
 }

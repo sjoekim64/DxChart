@@ -54,19 +54,8 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onExtractComplete, onC
 
   // AI를 사용해서 PDF 텍스트에서 환자 정보 추출 (재시도 로직 포함)
   const extractPatientDataFromText = async (pdfText: string, retryCount = 0): Promise<PatientData> => {
-    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      const errorMsg = 'OPENAI_API_KEY가 설정되지 않았습니다.\n\n' +
-        '해결 방법:\n' +
-        '1. 프로젝트 루트에 .env.local 파일을 생성하세요.\n' +
-        '2. 다음 내용을 추가하세요:\n' +
-        '   OPENAI_API_KEY=sk-proj-your-api-key-here\n' +
-        '   VITE_OPENAI_API_KEY=sk-proj-your-api-key-here\n' +
-        '3. 개발 서버를 재시작하세요 (npm run dev)';
-      throw new Error(errorMsg);
-    }
-
-    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+    const { createOpenAIClient } = await import('../lib/openaiClient');
+    const openai = createOpenAIClient();
     
     const prompt = `다음은 환자 차트 PDF에서 추출한 텍스트입니다. 이 텍스트에서 환자 정보를 추출하여 JSON 형식으로 반환해주세요.
 

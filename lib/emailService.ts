@@ -1,9 +1,10 @@
 import emailjs from '@emailjs/browser';
 
 // EmailJS 설정 (환경 변수에서 가져오기)
-const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID || 'service_l4jlrhr';
-const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || 'template_g0mc9fr';
-const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || 'rA7woIdCuPRzaiuAF';
+// Vite에서는 VITE_ 접두사가 있는 환경 변수만 클라이언트에 노출됩니다
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_l4jlrhr';
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_g0mc9fr';
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'rA7woIdCuPRzaiuAF';
 
 // EmailJS 초기화
 emailjs.init(EMAILJS_PUBLIC_KEY);

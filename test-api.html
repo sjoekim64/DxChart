@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OpenAI API 테스트</title>
+</head>
+<body>
+  <h1>OpenAI API 연결 테스트</h1>
+  <button onclick="testAPI()">API 테스트 실행</button>
+  <div id="result"></div>
+  
+  <script type="module">
+    import { testApiConnection } from './lib/openaiClient.ts';
+    
+    window.testAPI = async () => {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '테스트 중...';
+      
+      try {
+        const result = await testApiConnection();
+        resultDiv.innerHTML = `
+          <h2>결과: ${result.success ? '✅ 성공' : '❌ 실패'}</h2>
+          <p>${result.message}</p>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <h2>❌ 오류 발생</h2>
+          <p>${error.message || error}</p>
+        `;
+      }
+    };
+  </script>
+</body>
+</html>

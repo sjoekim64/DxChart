@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PatientData, ChiefComplaintData, MedicalHistoryData, ReviewOfSystemsData, TongueData, DiagnosisAndTreatmentData, AcupunctureMethod } from '../types.ts';
-import OpenAI from 'openai';
+import { createOpenAIClient } from '../lib/openaiClient';
 import { database } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import type { PatientChart } from '../lib/database';
+import { SignaturePad } from './SignaturePad';
 
 interface InputFieldProps {
   label: string;
@@ -240,6 +241,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
   });
   const [isGeneratingHpi, setIsGeneratingHpi] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [isGeneratingIcd, setIsGeneratingIcd] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [needsHpiRegeneration, setNeedsHpiRegeneration] = useState(false);
   const [previousCharts, setPreviousCharts] = useState<PatientData[]>([]);
@@ -583,15 +585,10 @@ export const PatientForm: React.FC<PatientFormProps> = ({ initialData, onSubmit,
       return text;
     }
 
-    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      alert('OPENAI_API_KEY가 설정되지 않았습니다.');
-      return text;
-    }
-
-    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-
-    const prompt = `You are a medical professional translating muscle names from Korean or Chinese to English for trigger point acupuncture.
+    try {
+      const openai = createOpenAIClient();
+      
+      const prompt = `You are a medical professional translating muscle names from Korean or Chinese to English for trigger point acupuncture.
 
 **IMPORTANT INSTRUCTIONS:**
 1. The text below contains muscle names in Korean (한글) or Chinese (中文) for trigger point acupuncture
@@ -613,7 +610,6 @@ ${text}
 
 Translated text (muscle names in English only):`;
 
-    try {
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
@@ -636,15 +632,10 @@ Translated text (muscle names in English only):`;
       return text;
     }
 
-    const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      alert('OPENAI_API_KEY가 설정되지 않았습니다.');
-      return text;
-    }
-
-    const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-
-    const contextMap: { [key: string]: string } = {
+    try {
+      const openai = createOpenAIClient();
+      
+      const contextMap: { [key: string]: string } = {
       'remark': 'patient chart remark or follow-up notes',
       'respondToCareNotes': 'patient response to care notes',
       'tongueCoatingNotes': 'tongue coating observation notes',
@@ -678,7 +669,6 @@ Please provide ONLY the final corrected and improved English version. Do not add
 
 Corrected English text:`;
 
-    try {
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
@@ -830,6 +820,169 @@ Corrected English text:`;
         rangeOfMotion: currentROM,
       };
     });
+  };
+
+  const handleGenerateIcd = async () => {
+    setIsGeneratingIcd(true);
+    
+    try {
+      const openai = createOpenAIClient();
+      
+      const currentIcd = formData.diagnosisAndTreatment.icd?.trim() || '';
+      
+      // 기존 ICD 코드가 있으면 개선 (설명 추가), 없으면 새로 생성
+      if (currentIcd) {
+        // 기존 ICD 코드들을 파싱 (세미콜론으로 구분)
+        const existingCodes = currentIcd.split(';').map(code => code.trim()).filter(Boolean);
+        const improvedCodes: string[] = [];
+        
+        for (const codeEntry of existingCodes) {
+          // 이미 설명이 있는 경우 (예: M54.2(cervicalgia)) - 그대로 유지
+          if (codeEntry.includes('(') && codeEntry.includes(')')) {
+            improvedCodes.push(codeEntry);
+            continue;
+          }
+          
+          // 코드만 있는 경우 (예: M54.2) - 설명 추가
+          const codeMatch = codeEntry.match(/^([A-Z]\d{2}(?:\.\d+)?)/);
+          if (codeMatch) {
+            const codeOnly = codeMatch[1];
+            
+            const prompt = `Given the following ICD-10 code, provide its full description.
+
+ICD-10 Code: ${codeOnly}
+
+Provide the code with description in the format: CODE(description)
+Example: M54.2(cervicalgia) or M25.51(pain in shoulder)
+
+Return ONLY the code in the format CODE(description), nothing else.`;
+
+            try {
+              const response = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.3,
+              });
+
+              const improvedIcd = response.choices[0]?.message?.content?.trim() || '';
+              if (improvedIcd) {
+                improvedCodes.push(improvedIcd);
+              } else {
+                // 개선 실패 시 원본 코드 유지
+                improvedCodes.push(codeEntry);
+              }
+            } catch (error) {
+              console.error(`❌ ICD 코드 개선 실패 (${codeOnly}):`, error);
+              // 개선 실패 시 원본 코드 유지
+              improvedCodes.push(codeEntry);
+            }
+          } else {
+            // 코드 형식이 아닌 경우 그대로 유지
+            improvedCodes.push(codeEntry);
+          }
+        }
+        
+        const improvedIcd = improvedCodes.join('; ');
+        
+        if (improvedIcd) {
+          setFormData(prev => ({
+            ...prev,
+            diagnosisAndTreatment: {
+              ...prev.diagnosisAndTreatment,
+              icd: improvedIcd
+            }
+          }));
+          setHasChanges(true);
+        }
+      } else {
+        // 기존 코드가 없으면 chief complaints를 보고 새로 생성
+        const { chiefComplaint } = formData;
+        const allComplaints = [...chiefComplaint.selectedComplaints, chiefComplaint.otherComplaint].filter(Boolean);
+        const locationDisplay = [...chiefComplaint.locationDetails, chiefComplaint.location].filter(Boolean).join(', ');
+        
+        if (allComplaints.length === 0) {
+          alert('Chief complaint를 먼저 입력해주세요.');
+          setIsGeneratingIcd(false);
+          return;
+        }
+        
+        // 각 chief complaint에 대해 개별적으로 ICD 코드 생성
+        const icdCodes: string[] = [];
+        
+        for (const complaint of allComplaints) {
+          if (!complaint || complaint.trim() === '') continue;
+          
+          const prompt = `Based on the following chief complaint, provide the most appropriate ICD-10 code with description.
+
+Chief Complaint: ${complaint}
+Location: ${locationDisplay || 'Not specified'}
+
+Provide the ICD-10 code in the format: CODE(description)
+Example: M54.2(cervicalgia) or M25.51(pain in shoulder) or M54.3(sciatica)
+
+Return ONLY the code in the format CODE(description), nothing else.`;
+
+          try {
+            const response = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.3,
+            });
+
+            const generatedIcd = response.choices[0]?.message?.content?.trim() || '';
+            if (generatedIcd) {
+              icdCodes.push(generatedIcd);
+            }
+          } catch (error) {
+            console.error(`❌ ICD 코드 생성 실패 (${complaint}):`, error);
+            // 개별 실패해도 계속 진행
+          }
+        }
+        
+        // 모든 ICD 코드를 세미콜론으로 구분하여 합치기
+        const combinedIcd = icdCodes.join('; ');
+        
+        if (combinedIcd) {
+          setFormData(prev => ({
+            ...prev,
+            diagnosisAndTreatment: {
+              ...prev.diagnosisAndTreatment,
+              icd: combinedIcd
+            }
+          }));
+          setHasChanges(true);
+        } else {
+          alert('ICD 코드를 생성할 수 없습니다. Chief complaint를 확인해주세요.');
+        }
+      }
+    } catch (error: any) {
+      console.error("❌ ICD 코드 생성/개선 오류:", error);
+      console.error("❌ 오류 상세:", {
+        message: error?.message,
+        status: error?.status,
+        code: error?.code,
+        error: error?.error,
+        response: error?.response
+      });
+      
+      let errorMessage = 'ICD 코드 생성/개선에 실패했습니다.';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      } else if (error?.status === 401) {
+        errorMessage = 'API 키가 유효하지 않습니다. .env.local 파일의 API 키를 확인하세요.';
+      } else if (error?.status === 429) {
+        errorMessage = 'API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error?.status === 503) {
+        errorMessage = 'OpenAI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.';
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsGeneratingIcd(false);
+    }
   };
 
   const handleGenerateHpi = async () => {
@@ -1100,12 +1253,7 @@ Generate the HPI paragraph below:
 `;
 
     try {
-        const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-        if (!apiKey) {
-          throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
-        }
-        
-        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+        const openai = createOpenAIClient();
         
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -1247,6 +1395,7 @@ JSON Output Structure:
   "treatmentPrinciple": "${previousDiagnosis && !complaintsChanged ? `CRITICAL: The chief complaint is unchanged. You MUST maintain the SAME treatment principle as the previous visit: "${previousDiagnosis.treatmentPrinciple}". Keep the core principle consistent, only adjust minor details if symptoms have changed slightly.` : 'State the clear treatment principle (e.g., Soothe the Liver, tonify Spleen Qi, resolve dampness).'}",
   "acupuncturePoints": "CRITICAL: Provide acupuncture points ONLY for the selected methods: ${methodsForPrompt.length > 0 ? methodsForPrompt.join(', ') : 'None'}. Your response MUST be a single string. List ONLY the point names/groups; DO NOT include any explanations. Structure the output so that EACH SELECTED METHOD IS ON ITS OWN LINE, using '\\n' as a separator, with the format 'Method Name: point1, point2, point3...'. For example: 'Trigger Point: Upper trapezius, Levator scapulae, Rhomboids, Infraspinatus'; 'TCM Body: ST36, SP6, LI4, LV3, GB34, BL23'; 'Saam: HT8, LR1 (sedate); LU8, SP2 (tonify)' (Saam MUST include at least FOUR points — two for sedation and two for tonification); 'Five Element: Source, Tonification, and Sedation points appropriate for the main pattern (at least 4–6 points total)'. DO NOT include methods that were NOT selected.",
   "herbalTreatment": "Recommend a classic herbal formula based on 'Donguibogam' (동의보감) and 'Bangyakhappyeon' (방약합편). IMPORTANT: Consider the patient's current medications and family history to avoid drug interactions. Start with '[RECOMMENDED]' prefix, then provide the formula name (e.g., '[RECOMMENDED] Du Huo Ji Sheng Tang'). After the formula name, list all the individual herbs (약재) that are included in this formula, separated by commas. Format: '[RECOMMENDED] Formula Name: Herb1, Herb2, Herb3, ...'. If there are any potential interactions with current medications, add a warning note.",
+  "icd": "Based on the chief complaint and symptoms, provide the most appropriate ICD-10 code followed by a description in parentheses. Format: CODE(description). Example: M54.9(neck and shoulder pain) or M79.3(panniculitis, unspecified). The code should match the primary complaint. If multiple complaints exist, provide the most relevant primary code.",
   "otherTreatment": {
     "recommendation": "IMPORTANT: The practitioner has already selected: ${selectedTreatmentsForPrompt}. You MUST recommend one of these selected treatments. If multiple are selected, recommend the most appropriate one. If 'None' is selected, recommend 'None'. Do NOT suggest treatments that were NOT selected.",
     "explanation": "Briefly explain why you recommend this specific treatment from the selected options."
@@ -1264,11 +1413,7 @@ Instructions:
     const baseDelay = 2000; // 2초
     
     try {
-        const apiKey = import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY;
-        if (!apiKey) {
-          throw new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
-        }
-        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+        const openai = createOpenAIClient();
         
         // 재시도 로직
         let response;
@@ -1465,6 +1610,7 @@ Instructions:
                 herbalTreatment: generatedData.herbalTreatment || prev.diagnosisAndTreatment.herbalTreatment || '',
                 selectedTreatment: newSelectedTreatments,
                 otherTreatmentText: otherTreatmentText,
+                icd: generatedData.icd || prev.diagnosisAndTreatment.icd || '',
                 cpt: Array.from(newCptSet).join(', ')
             }
         }));
@@ -2220,6 +2366,40 @@ Instructions:
                   </div>
                 </div>
              )}
+          </div>
+
+          {/* ICD Code Section */}
+          <div className="mt-6 border-t pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label htmlFor="icd" className="block text-sm font-medium text-gray-700 mb-1">
+                  ICD Code (International Classification of Diseases)
+                </label>
+                <p className="text-xs text-gray-500">
+                  {formData.diagnosisAndTreatment.icd?.trim() 
+                    ? '기존 코드에 설명을 추가합니다. 코드만 입력되어 있으면 버튼을 클릭하여 설명을 추가하세요.'
+                    : '각 chief complaint마다 ICD 코드를 자동 생성합니다 (세미콜론으로 구분)'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateIcd}
+                disabled={isGeneratingIcd || (!formData.diagnosisAndTreatment.icd?.trim() && !formData.chiefComplaint.selectedComplaints.length && !formData.chiefComplaint.otherComplaint)}
+                className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+              >
+                {isGeneratingIcd 
+                  ? (formData.diagnosisAndTreatment.icd?.trim() ? 'Improving...' : 'Generating...')
+                  : (formData.diagnosisAndTreatment.icd?.trim() ? 'Improve ICD Code' : 'Generate ICD Code')}
+              </button>
+            </div>
+            <InputField
+              label=""
+              id="icd"
+              name="icd"
+              value={formData.diagnosisAndTreatment.icd}
+              onChange={handleDiagnosisChange}
+              placeholder="예: M54.2(cervicalgia); M25.51(pain in shoulder); M54.3(sciatica) - 버튼을 클릭하여 자동 생성 또는 개선"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -4214,7 +4394,6 @@ Instructions:
                 <textarea id="herbalTreatment" name="herbalTreatment" value={formData.diagnosisAndTreatment.herbalTreatment} onChange={handleDiagnosisChange} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
             </div>
              <div className="grid grid-cols-3 gap-4">
-                <InputField label="ICD" id="icd" name="icd" value={formData.diagnosisAndTreatment.icd} onChange={handleDiagnosisChange} />
                 <InputField label="CPT" id="cpt" name="cpt" value={formData.diagnosisAndTreatment.cpt} onChange={handleDiagnosisChange} />
                 <InputField label="Therapist Name" id="therapistName" name="therapistName" value={formData.diagnosisAndTreatment.therapistName} onChange={handleDiagnosisChange} />
                 <InputField label="Lic #" id="therapistLicNo" name="therapistLicNo" value={formData.diagnosisAndTreatment.therapistLicNo} onChange={handleDiagnosisChange} />
@@ -4222,6 +4401,31 @@ Instructions:
         </div>
       </div>
 
+      {/* Patient Signature Section */}
+      <div className="bg-white p-6 rounded-lg shadow-lg mt-6">
+        <h2 className="text-2xl font-semibold text-gray-800 border-b pb-4 mb-6">Patient Signature</h2>
+        <div className="space-y-6">
+          <SignaturePad
+            label="환자 서명"
+            value={formData.patientSignature}
+            onChange={(signature) => {
+              setFormData(prev => ({
+                ...prev,
+                patientSignature: signature,
+                patientSignatureDate: signature ? new Date().toISOString().split('T')[0] : undefined
+              }));
+              setHasChanges(true);
+            }}
+            width={600}
+            height={200}
+          />
+          {formData.patientSignature && (
+            <div className="text-sm text-gray-600">
+              서명 날짜: {formData.patientSignatureDate || formData.date}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="flex justify-end items-center pt-8 mt-8 border-t sticky bottom-0 bg-white pb-4">
           <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isGeneratingHpi || isDiagnosing}>
