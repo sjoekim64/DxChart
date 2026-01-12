@@ -628,7 +628,7 @@ const PatientChartApp: React.FC = () => {
                     onStartFollowUpFromPDF={handleStartFollowUpFromPDF}
                     onClearSampleData={clearSampleData}
                     onViewPatient={handleViewPatient}
-                    onCreateSample100106={createSample100106}
+                    onImportPDF={() => setShowPDFUploader(true)}
                 />;
     }
   };

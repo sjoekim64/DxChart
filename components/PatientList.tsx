@@ -12,9 +12,10 @@ interface PatientListProps {
   onDeletePatient: (fileNo: string, date: string) => void;
   onClearSampleData?: () => void;
   onViewPatient?: (patient: PatientData) => void;
+  onImportPDF?: () => void;
 }
 
-export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromScratch, onStartFollowUpFromPDF, onDeletePatient, onClearSampleData, onViewPatient, onCreateSample100106 }) => {
+export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromScratch, onStartFollowUpFromPDF, onDeletePatient, onClearSampleData, onViewPatient, onImportPDF }) => {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,12 +100,12 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
           >
             Create Follow-up Chart
           </button>
-          {onCreateSample100106 && (
+          {onImportPDF && (
             <button
-              onClick={onCreateSample100106}
-              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+              onClick={onImportPDF}
+              className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors duration-200"
             >
-              Create Sample 100106
+              Import PDF Chart
             </button>
           )}
         </div>
