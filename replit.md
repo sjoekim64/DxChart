@@ -5,9 +5,11 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 
 ## Tech Stack
 - **Frontend:** React 19, TypeScript
+- **Backend:** Express.js, Node.js
+- **Database:** PostgreSQL (Drizzle ORM)
 - **Build Tool:** Vite 6
 - **Styling:** Tailwind CSS 4
-- **Storage:** IndexedDB (client-side)
+- **Payments:** Stripe
 - **Additional Libraries:** EmailJS, html2pdf.js, OpenAI
 
 ## Project Structure
@@ -23,6 +25,12 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
   - `AuthContext.tsx` - User authentication
   - `LanguageContext.tsx` - Internationalization
   - `SubscriptionContext.tsx` - Subscription management and feature gating
+- `/server` - Backend API server
+  - `index.ts` - Express server with Stripe, auth, patient APIs
+  - `db.ts` - PostgreSQL database connection (Drizzle)
+  - `storage.ts` - Database storage layer
+- `/shared` - Shared code between frontend and backend
+  - `schema.ts` - Drizzle database schema (users, subscriptions, patients, pricing_tiers)
 - `/hooks` - Custom React hooks (useAdminMode)
 - `/lib` - Utility libraries (database, sampleData, translations)
 - `/types` - TypeScript type definitions
@@ -39,7 +47,10 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Password: `Joe007007`
 
 ## Development
-- Run: `npm run dev` (starts Vite dev server on port 5000)
+- Frontend: `npm run dev` (Vite dev server on port 5000)
+- Backend: `npm run server` (Express API on port 3001)
+- Both: `npm run dev:all` (runs frontend and backend concurrently)
+- Database: `npm run db:push` (push schema to PostgreSQL)
 - Build: `npm run build` (outputs to `dist/`)
 
 ## Deployment
@@ -99,4 +110,41 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Patient limits: `useSubscription().canAddPatient(currentCount)`
 - AI access check: `useSubscription().hasAIAccess()`
 - Subscription tiers: free, basic, professional, enterprise
-- Storage: `localStorage` with key `subscription_{userId}`
+- Storage: PostgreSQL (subscriptions table) + localStorage fallback
+
+## Backend API Endpoints
+### Core APIs
+- `GET /api/health` - Health check
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+- `GET /api/subscription/:userId` - Get user subscription
+- `GET /api/pricing-tiers` - Get pricing tiers
+
+### Stripe Payment APIs
+- `POST /api/create-checkout-session` - Create Stripe checkout session (demo mode if no key)
+- `POST /api/verify-checkout` - Verify payment and update subscription
+- `POST /api/webhook` - Stripe webhook handler
+
+### Patient APIs (with ownership validation)
+- `GET /api/patients/:userId` - Get user's patients
+- `POST /api/patients` - Create patient (requires userId)
+- `PUT /api/patients/:id` - Update patient (validates ownership)
+- `DELETE /api/patients/:id` - Delete patient (validates ownership via query param)
+
+### Admin APIs
+- `GET /api/admin/users` - Get all users (for admin dashboard)
+- `PUT /api/admin/users/:id/approve` - Approve user
+- `PUT /api/admin/users/:id/reject` - Reject/unapprove user
+- `DELETE /api/admin/users/:id` - Delete user (cascades to subscriptions/patients)
+- `PUT /api/admin/pricing-tiers/:tierId` - Update pricing tier
+
+## Database Schema (Drizzle ORM)
+- `users` - User accounts
+- `subscriptions` - User subscription status (Stripe integration)
+- `patients` - Patient records with chart data (JSONB)
+- `pricing_tiers` - Admin-configurable pricing plans
+
+## Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string
+- `STRIPE_SECRET_KEY` - Stripe API key (optional for demo mode)
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook secret (optional)
