@@ -41,7 +41,13 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Static deployment configured with build output in `dist/` folder
 
 ## Recent Changes (2026-01-24)
+- Added AI API settings management in admin dashboard
 - Added landing page with service introduction
 - Improved authentication flow with back-to-landing navigation
 - Fixed Vite host blocking issue with array syntax for allowedHosts
 - Optimized auth loading state for faster initial load
+
+## Admin Features
+- User management (approve/reject/delete)
+- Notification settings
+- AI API settings (OpenAI API key, model selection, token limits)

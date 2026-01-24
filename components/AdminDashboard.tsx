@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { database } from '../lib/database';
 import type { User } from '../types/auth';
 import { NotificationSettings } from './NotificationSettings';
+import { AISettings } from './AISettings';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminMode } from '../hooks/useAdminMode';
 
@@ -13,6 +14,7 @@ export const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
   
   const handleLogout = () => {
     clearAdminMode();
@@ -101,6 +103,12 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">관리자 대시보드</h1>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowAISettings(true)}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+              >
+                AI API 설정
+              </button>
               <button
                 onClick={() => setShowNotificationSettings(true)}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -253,6 +261,11 @@ export const AdminDashboard: React.FC = () => {
       {/* 알림 설정 모달 */}
       {showNotificationSettings && (
         <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
+      )}
+      
+      {/* AI API 설정 모달 */}
+      {showAISettings && (
+        <AISettings onClose={() => setShowAISettings(false)} />
       )}
     </div>
   );
