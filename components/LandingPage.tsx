@@ -134,8 +134,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
 
       <footer className="bg-gray-900 text-gray-400 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p>{t('app.title')}</p>
-          <p className="text-sm mt-2">{t('app.description')}</p>
+          <p className="text-white font-semibold">{t('app.title')}</p>
+          <p className="text-sm mt-2">{t('app.copyright')}</p>
+          <p className="text-xs mt-1">{t('app.ipNotice')}</p>
+          <p className="text-sm mt-3">
+            {t('app.contact')}: <a href="mailto:sjoekim@gmail.com" className="text-indigo-400 hover:text-indigo-300">sjoekim@gmail.com</a>
+          </p>
         </div>
       </footer>
     </div>

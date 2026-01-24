@@ -9,7 +9,7 @@ export const LANGUAGES: { code: Language; name: string; nativeName: string }[] =
   { code: 'es', name: 'Spanish', nativeName: 'Español' },
 ];
 
-export const translations: Record<Language, Record<string, string>> = {
+export const translations: Record<Language, Record<string, string | string[]>> = {
   en: {
     // Landing Page
     'app.title': 'Patient Chart',
@@ -20,6 +20,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': 'Login',
     'app.register': 'Register',
     'app.logout': 'Logout',
+    'app.copyright': 'Developed by Seongjo Kim. All rights reserved.',
+    'app.ipNotice': 'This software and its contents are protected by intellectual property laws.',
+    'app.contact': 'Contact',
     
     // Features
     'features.title': 'Key Features',
@@ -249,6 +252,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': '로그인',
     'app.register': '회원가입',
     'app.logout': '로그아웃',
+    'app.copyright': '개발자: Seongjo Kim. 모든 권리 보유.',
+    'app.ipNotice': '본 소프트웨어와 콘텐츠는 지적재산권법의 보호를 받습니다.',
+    'app.contact': '연락처',
     
     // Features
     'features.title': '주요 기능',
@@ -478,6 +484,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': '登入',
     'app.register': '註冊',
     'app.logout': '登出',
+    'app.copyright': '開發者：Seongjo Kim。版權所有。',
+    'app.ipNotice': '本軟體及其內容受智慧財產權法保護。',
+    'app.contact': '聯繫方式',
     
     // Features
     'features.title': '主要功能',
@@ -707,6 +716,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': '登录',
     'app.register': '注册',
     'app.logout': '退出登录',
+    'app.copyright': '开发者：Seongjo Kim。版权所有。',
+    'app.ipNotice': '本软件及其内容受知识产权法保护。',
+    'app.contact': '联系方式',
     
     // Features
     'features.title': '主要功能',
@@ -936,6 +948,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': 'ログイン',
     'app.register': '登録',
     'app.logout': 'ログアウト',
+    'app.copyright': '開発者：Seongjo Kim。全著作権所有。',
+    'app.ipNotice': '本ソフトウェアとそのコンテンツは知的財産権法により保護されています。',
+    'app.contact': 'お問い合わせ',
     
     // Features
     'features.title': '主な機能',
@@ -1165,6 +1180,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'app.login': 'Iniciar Sesión',
     'app.register': 'Registrarse',
     'app.logout': 'Cerrar Sesión',
+    'app.copyright': 'Desarrollado por Seongjo Kim. Todos los derechos reservados.',
+    'app.ipNotice': 'Este software y su contenido están protegidos por leyes de propiedad intelectual.',
+    'app.contact': 'Contacto',
     
     // Features
     'features.title': 'Características Principales',
