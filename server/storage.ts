@@ -108,7 +108,7 @@ export class DatabaseStorage implements IStorage {
 
   // Pricing Tiers
   async getPricingTiers(): Promise<PricingTier[]> {
-    return await db.select().from(pricingTiers);
+    return await db.select().from(pricingTiers).orderBy(pricingTiers.id);
   }
 
   async getPricingTier(tierId: string): Promise<PricingTier | undefined> {
