@@ -41,12 +41,26 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Static deployment configured with build output in `dist/` folder
 
 ## Recent Changes (2026-01-24)
+- **Full Internationalization (i18n) Support**
+  - 5 languages: English (default), Korean (한국어), Traditional Chinese (中文繁體), Japanese (日本語), Spanish (Español)
+  - LanguageContext and LanguageSelector components for language switching
+  - Language preference saved to localStorage (key: 'app_language')
+  - All major components translated: LandingPage, AuthWrapper, LoginForm, RegisterForm, AdminDashboard, NotificationSettings, AISettings
 - Enhanced notification settings with EmailJS and Twilio configuration
 - Added AI API settings management in admin dashboard
 - Added landing page with service introduction
 - Improved authentication flow with back-to-landing navigation
 - Fixed Vite host blocking issue with array syntax for allowedHosts
 - Optimized auth loading state for faster initial load
+
+## Internationalization (i18n)
+- Translation file: `/lib/translations.ts`
+- Context provider: `/contexts/LanguageContext.tsx`
+- Language selector: `/components/LanguageSelector.tsx`
+- Usage: `const { t, tArray, language } = useLanguage();`
+  - `t('key')` - Get translated string
+  - `tArray('key')` - Get translated array of strings
+  - `language` - Current language code ('en', 'ko', 'zh-TW', 'ja', 'es')
 
 ## Admin Features
 - User management (approve/reject/delete)

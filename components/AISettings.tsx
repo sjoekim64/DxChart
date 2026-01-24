@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export type AIProvider = 'openai' | 'gemini' | 'claude';
 
@@ -17,24 +18,24 @@ interface AIConfig {
 }
 
 const OPENAI_MODELS = [
-  { id: 'gpt-4o', name: 'GPT-4o (추천)' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini (경제적)' },
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
   { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
   { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
 ];
 
 const GEMINI_MODELS = [
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (추천)' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
   { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
   { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro' },
 ];
 
 const CLAUDE_MODELS = [
-  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (추천)' },
+  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
   { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
   { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
-  { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku (경제적)' },
+  { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' },
 ];
 
 const AI_CONFIG_KEY = 'ai_config';
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: AIConfig = {
 };
 
 export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { t, tArray } = useLanguage();
   const [config, setConfig] = useState<AIConfig>(DEFAULT_CONFIG);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,7 +74,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           setConfig({ ...DEFAULT_CONFIG, ...parsed });
         }
       } catch (e) {
-        console.error('AI 설정 로드 실패:', e);
+        console.error('Failed to load AI settings:', e);
       }
     }
   }, []);
@@ -97,9 +99,9 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setIsSaving(true);
     try {
       localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
-      setMessage({ type: 'success', text: 'AI 설정이 저장되었습니다.' });
+      setMessage({ type: 'success', text: t('ai.saved') });
     } catch (e) {
-      setMessage({ type: 'error', text: '설정 저장에 실패했습니다.' });
+      setMessage({ type: 'error', text: t('ai.saveFailed') });
     } finally {
       setIsSaving(false);
     }
@@ -108,12 +110,12 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const handleTest = async () => {
     const providerConfig = getCurrentProvider();
     if (!providerConfig.apiKey) {
-      setMessage({ type: 'error', text: 'API 키를 입력해주세요.' });
+      setMessage({ type: 'error', text: t('ai.apiKeyRequired') });
       return;
     }
 
     setIsTesting(true);
-    setMessage({ type: 'info', text: 'API 연결 테스트 중...' });
+    setMessage({ type: 'info', text: t('ai.testing') });
 
     try {
       let response: Response;
@@ -161,24 +163,24 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'API 연결 테스트 성공! API 키가 유효합니다.' });
+        setMessage({ type: 'success', text: t('ai.testSuccess') });
       } else {
         const error = await response.json();
-        const errorMsg = error.error?.message || error.message || '알 수 없는 오류';
-        setMessage({ type: 'error', text: `API 오류: ${errorMsg}` });
+        const errorMsg = error.error?.message || error.message || t('ai.unknownError');
+        setMessage({ type: 'error', text: `${t('ai.apiError')}: ${errorMsg}` });
       }
     } catch (e) {
-      setMessage({ type: 'error', text: 'API 연결 실패. 네트워크를 확인해주세요.' });
+      setMessage({ type: 'error', text: t('ai.connectionFailed') });
     } finally {
       setIsTesting(false);
     }
   };
 
   const handleDelete = () => {
-    if (confirm('AI API 설정을 삭제하시겠습니까?')) {
+    if (confirm(t('ai.deleteConfirm'))) {
       localStorage.removeItem(AI_CONFIG_KEY);
       setConfig(DEFAULT_CONFIG);
-      setMessage({ type: 'success', text: 'AI 설정이 삭제되었습니다.' });
+      setMessage({ type: 'success', text: t('ai.deleted') });
     }
   };
 
@@ -198,12 +200,14 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
+  const aiNotes = tArray('ai.noteItems');
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">AI API 설정</h2>
+            <h2 className="text-2xl font-bold text-gray-800">{t('ai.title')}</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -225,8 +229,8 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div>
-                <h3 className="font-medium text-gray-900">AI 기능 활성화</h3>
-                <p className="text-sm text-gray-500">환자 차트에서 AI 기능을 사용합니다</p>
+                <h3 className="font-medium text-gray-900">{t('ai.enableAI')}</h3>
+                <p className="text-sm text-gray-500">{t('ai.enableAIDesc')}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -240,7 +244,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">AI 제공자 선택</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('ai.selectProvider')}</label>
               <div className="flex gap-2">
                 {(['openai', 'gemini', 'claude'] as AIProvider[]).map((provider) => (
                   <button
@@ -260,7 +264,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {getProviderName(config.provider)} API 키
+                {getProviderName(config.provider)} {t('ai.apiKey')}
               </label>
               <div className="relative">
                 <input
@@ -275,25 +279,24 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   onClick={() => setShowApiKey(!showApiKey)}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
                 >
-                  {showApiKey ? '숨기기' : '보기'}
+                  {showApiKey ? t('ai.hideKey') : t('ai.showKey')}
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                {getProviderName(config.provider)}에서 발급받은 API 키를 입력하세요.
                 <a 
                   href={getProviderLink(config.provider)}
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline ml-1"
+                  className="text-blue-600 hover:underline"
                 >
-                  API 키 발급받기
+                  {t('ai.getApiKey')}
                 </a>
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                AI 모델
+                {t('ai.model')}
               </label>
               <select
                 value={getCurrentProvider().model}
@@ -310,7 +313,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                최대 토큰 수
+                {t('ai.maxTokens')}
               </label>
               <input
                 type="number"
@@ -321,16 +324,16 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <p className="mt-1 text-xs text-gray-500">
-                AI 응답의 최대 길이를 설정합니다 (100-4000)
+                {t('ai.maxTokensDesc')}
               </p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="font-medium text-yellow-800 mb-2">주의사항</h4>
+              <h4 className="font-medium text-yellow-800 mb-2">{t('ai.note')}</h4>
               <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• API 키는 브라우저에 안전하게 저장됩니다</li>
-                <li>• API 사용량에 따라 {getProviderName(config.provider)} 요금이 부과됩니다</li>
-                <li>• 환자 정보가 AI에 전송될 수 있으니 개인정보 보호에 유의하세요</li>
+                {aiNotes.map((note, i) => (
+                  <li key={i}>• {note}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -340,7 +343,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               onClick={handleDelete}
               className="px-4 py-2 text-red-600 hover:text-red-800 font-medium"
             >
-              설정 삭제
+              {t('ai.deleteSettings')}
             </button>
             <div className="flex gap-3">
               <button
@@ -348,14 +351,14 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 disabled={isTesting || !getCurrentProvider().apiKey}
                 className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isTesting ? '테스트 중...' : '연결 테스트'}
+                {isTesting ? t('ai.testing') : t('ai.testConnection')}
               </button>
               <button
                 onClick={handleSave}
                 disabled={isSaving}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSaving ? '저장 중...' : '저장'}
+                {isSaving ? t('common.loading') : t('common.save')}
               </button>
             </div>
           </div>

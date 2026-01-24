@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { RegisterData } from '../types/auth';
 
 interface RegisterFormProps {
@@ -8,6 +9,7 @@ interface RegisterFormProps {
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onRegistrationSuccess }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState<RegisterData>({
     username: '',
     password: '',
@@ -25,35 +27,32 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
     e.preventDefault();
     setError('');
 
-    // 비밀번호 확인
     if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
+      setError(t('auth.passwordMismatch'));
       return;
     }
 
-    // 비밀번호 길이 확인
     if (formData.password.length < 6) {
-      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      setError(t('auth.passwordMinLength'));
       return;
     }
 
     setIsLoading(true);
 
     try {
-      console.log('📝 회원가입 폼 제출:', formData.username);
+      console.log('Registering user:', formData.username);
       const response = await register(formData);
-      console.log('📋 회원가입 응답:', response);
+      console.log('Registration response:', response);
       
       if (!response.success) {
-        console.error('❌ 회원가입 실패:', response.error);
-        setError(response.error || '회원가입에 실패했습니다.');
+        console.error('Registration failed:', response.error);
+        setError(response.error || t('auth.loginError'));
       } else {
-        console.log('✅ 회원가입 성공, 메인 화면으로 이동');
-        // 테스트용으로 회원가입 성공 시 바로 메인 화면으로 이동 (운영 시 승인 대기로 변경)
+        console.log('Registration successful');
         onRegistrationSuccess?.();
       }
     } catch (error) {
-      setError('회원가입 중 오류가 발생했습니다.');
+      setError(t('auth.loginError'));
     } finally {
       setIsLoading(false);
     }
@@ -72,10 +71,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            환자 차트 시스템
+            {t('app.subtitle')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            새 계정을 만드세요
+            {t('auth.createNewAccount')}
           </p>
         </div>
         
@@ -83,7 +82,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                사용자명
+                {t('auth.username')}
               </label>
               <input
                 id="username"
@@ -91,7 +90,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="사용자명을 입력하세요"
+                placeholder={t('auth.enterUsername')}
                 value={formData.username}
                 onChange={handleChange}
               />
@@ -99,7 +98,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                비밀번호
+                {t('auth.password')}
               </label>
               <input
                 id="password"
@@ -107,7 +106,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="password"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="비밀번호 (최소 6자)"
+                placeholder={t('auth.enterPassword')}
                 value={formData.password}
                 onChange={handleChange}
               />
@@ -115,7 +114,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                비밀번호 확인
+                {t('auth.confirmPassword')}
               </label>
               <input
                 id="confirmPassword"
@@ -123,7 +122,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="password"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="비밀번호를 다시 입력하세요"
+                placeholder={t('auth.reenterPassword')}
                 value={formData.confirmPassword}
                 onChange={handleChange}
               />
@@ -131,7 +130,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
 
             <div>
               <label htmlFor="clinicName" className="block text-sm font-medium text-gray-700">
-                클리닉명
+                {t('auth.clinicName')}
               </label>
               <input
                 id="clinicName"
@@ -139,7 +138,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="클리닉명을 입력하세요"
+                placeholder={t('auth.enterClinicName')}
                 value={formData.clinicName}
                 onChange={handleChange}
               />
@@ -147,7 +146,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
 
             <div>
               <label htmlFor="therapistName" className="block text-sm font-medium text-gray-700">
-                치료사명
+                {t('auth.therapistName')}
               </label>
               <input
                 id="therapistName"
@@ -155,7 +154,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="치료사명을 입력하세요"
+                placeholder={t('auth.enterTherapistName')}
                 value={formData.therapistName}
                 onChange={handleChange}
               />
@@ -163,7 +162,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
 
             <div>
               <label htmlFor="therapistLicenseNo" className="block text-sm font-medium text-gray-700">
-                면허번호
+                {t('auth.licenseNo')}
               </label>
               <input
                 id="therapistLicenseNo"
@@ -171,7 +170,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="면허번호를 입력하세요"
+                placeholder={t('auth.enterLicenseNo')}
                 value={formData.therapistLicenseNo}
                 onChange={handleChange}
               />
@@ -190,7 +189,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              {isLoading ? '회원가입 중...' : '회원가입'}
+              {isLoading ? t('auth.registering') : t('auth.registerButton')}
             </button>
           </div>
 
@@ -200,7 +199,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, onR
               onClick={onSwitchToLogin}
               className="text-indigo-600 hover:text-indigo-500 text-sm"
             >
-              이미 계정이 있으신가요? 로그인
+              {t('auth.hasAccount')} {t('app.login')}
             </button>
           </div>
         </form>

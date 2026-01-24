@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { AuthWrapper } from './components/AuthWrapper';
 import { LandingPage } from './components/LandingPage';
 import { PatientForm } from './components/PatientForm';
@@ -732,9 +733,11 @@ const PatientChartApp: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <PatientChartApp />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <PatientChartApp />
+      </AuthProvider>
+    </LanguageProvider>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { LoginCredentials } from '../types/auth';
 import { database } from '../lib/database';
 
@@ -8,6 +9,7 @@ interface LoginFormProps {
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
+  const { t } = useLanguage();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
     password: '',
@@ -36,10 +38,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       const response = await login(credentials);
       
       if (!response.success) {
-        setError(response.error || '로그인에 실패했습니다.');
+        setError(response.error || t('auth.loginError'));
       }
     } catch (error) {
-      setError('로그인 중 오류가 발생했습니다.');
+      setError(t('auth.loginError'));
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +53,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       ...prev,
       [name]: value,
     }));
-    // 입력 시 에러 메시지 초기화
     if (error) setError('');
   };
 
@@ -69,19 +70,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     setForgotPasswordError('');
     setForgotPasswordSuccess(false);
 
-    // 유효성 검사
     if (!forgotPasswordData.username || !forgotPasswordData.licenseNo) {
-      setForgotPasswordError('사용자명과 면허번호를 모두 입력해주세요.');
+      setForgotPasswordError(t('auth.enterUsernameAndLicense'));
       return;
     }
 
     if (!forgotPasswordData.newPassword || forgotPasswordData.newPassword.length < 6) {
-      setForgotPasswordError('새 비밀번호는 최소 6자 이상이어야 합니다.');
+      setForgotPasswordError(t('auth.passwordMinLength'));
       return;
     }
 
     if (forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword) {
-      setForgotPasswordError('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.');
+      setForgotPasswordError(t('auth.passwordMismatch'));
       return;
     }
 
@@ -90,23 +90,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     try {
       await database.initialize();
       
-      // 사용자 확인
       const user = await database.getUserByUsername(forgotPasswordData.username);
       
       if (!user) {
-        setForgotPasswordError('사용자를 찾을 수 없습니다. 사용자명을 확인해주세요.');
+        setForgotPasswordError(t('auth.userNotFound'));
         setIsResettingPassword(false);
         return;
       }
 
-      // 면허번호 확인
       if (user.therapistLicenseNo !== forgotPasswordData.licenseNo) {
-        setForgotPasswordError('면허번호가 일치하지 않습니다.');
+        setForgotPasswordError(t('auth.licenseNoMismatch'));
         setIsResettingPassword(false);
         return;
       }
 
-      // 비밀번호 업데이트
       await database.updateUserPassword(forgotPasswordData.username, forgotPasswordData.newPassword);
       
       setForgotPasswordSuccess(true);
@@ -117,14 +114,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         confirmPassword: '',
       });
 
-      // 3초 후 비밀번호 찾기 폼 닫기
       setTimeout(() => {
         setShowForgotPassword(false);
         setForgotPasswordSuccess(false);
       }, 3000);
     } catch (error) {
-      console.error('비밀번호 재설정 실패:', error);
-      setForgotPasswordError(error instanceof Error ? error.message : '비밀번호 재설정에 실패했습니다.');
+      console.error('Password reset failed:', error);
+      setForgotPasswordError(error instanceof Error ? error.message : t('auth.passwordResetFailed'));
     } finally {
       setIsResettingPassword(false);
     }
@@ -135,10 +131,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            환자 차트 시스템
+            {t('app.subtitle')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            계정에 로그인하세요
+            {t('auth.loginToAccount')}
           </p>
         </div>
         
@@ -146,7 +142,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="username" className="sr-only">
-                사용자명
+                {t('auth.username')}
               </label>
               <input
                 id="username"
@@ -154,14 +150,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 type="text"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="사용자명"
+                placeholder={t('auth.username')}
                 value={credentials.username}
                 onChange={handleChange}
               />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                비밀번호
+                {t('auth.password')}
               </label>
               <input
                 id="password"
@@ -169,7 +165,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 type="password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="비밀번호"
+                placeholder={t('auth.password')}
                 value={credentials.password}
                 onChange={handleChange}
               />
@@ -193,7 +189,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              {isLoading ? '로그인 중...' : '로그인'}
+              {isLoading ? t('auth.loggingIn') : t('auth.loginButton')}
             </button>
           </div>
 
@@ -203,24 +199,23 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               onClick={() => setShowForgotPassword(true)}
               className="text-indigo-600 hover:text-indigo-500"
             >
-              비밀번호를 잊으셨나요?
+              {t('auth.forgotPassword')}
             </button>
             <button
               type="button"
               onClick={onSwitchToRegister}
               className="text-indigo-600 hover:text-indigo-500"
             >
-              회원가입
+              {t('app.register')}
             </button>
           </div>
         </form>
 
-        {/* 비밀번호 찾기 모달 */}
         {showForgotPassword && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">비밀번호 재설정</h3>
+                <h3 className="text-xl font-semibold text-gray-900">{t('auth.resetPassword')}</h3>
                 <button
                   onClick={() => {
                     setShowForgotPassword(false);
@@ -248,14 +243,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-green-800 font-medium">비밀번호가 성공적으로 변경되었습니다!</p>
-                  <p className="text-sm text-gray-600 mt-2">새 비밀번호로 로그인해주세요.</p>
+                  <p className="text-green-800 font-medium">{t('auth.passwordResetSuccess')}</p>
+                  <p className="text-sm text-gray-600 mt-2">{t('auth.loginWithNewPassword')}</p>
                 </div>
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
                     <label htmlFor="forgot-username" className="block text-sm font-medium text-gray-700 mb-1">
-                      사용자명
+                      {t('auth.username')}
                     </label>
                     <input
                       id="forgot-username"
@@ -265,13 +260,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       value={forgotPasswordData.username}
                       onChange={handleForgotPasswordChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="사용자명을 입력하세요"
+                      placeholder={t('auth.enterUsername')}
                     />
                   </div>
 
                   <div>
                     <label htmlFor="forgot-license" className="block text-sm font-medium text-gray-700 mb-1">
-                      면허번호
+                      {t('auth.licenseNo')}
                     </label>
                     <input
                       id="forgot-license"
@@ -281,13 +276,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       value={forgotPasswordData.licenseNo}
                       onChange={handleForgotPasswordChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="면허번호를 입력하세요"
+                      placeholder={t('auth.enterLicenseNo')}
                     />
                   </div>
 
                   <div>
                     <label htmlFor="forgot-new-password" className="block text-sm font-medium text-gray-700 mb-1">
-                      새 비밀번호
+                      {t('auth.newPassword')}
                     </label>
                     <input
                       id="forgot-new-password"
@@ -298,13 +293,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       value={forgotPasswordData.newPassword}
                       onChange={handleForgotPasswordChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="최소 6자 이상"
+                      placeholder={t('auth.minChars')}
                     />
                   </div>
 
                   <div>
                     <label htmlFor="forgot-confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-                      새 비밀번호 확인
+                      {t('auth.confirmPassword')}
                     </label>
                     <input
                       id="forgot-confirm-password"
@@ -314,7 +309,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       value={forgotPasswordData.confirmPassword}
                       onChange={handleForgotPasswordChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="새 비밀번호를 다시 입력하세요"
+                      placeholder={t('auth.reenterPassword')}
                     />
                   </div>
 
@@ -339,14 +334,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       }}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                      취소
+                      {t('common.cancel')}
                     </button>
                     <button
                       type="submit"
                       disabled={isResettingPassword}
                       className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
                     >
-                      {isResettingPassword ? '처리 중...' : '비밀번호 재설정'}
+                      {isResettingPassword ? t('auth.processing') : t('auth.resetPassword')}
                     </button>
                   </div>
                 </form>

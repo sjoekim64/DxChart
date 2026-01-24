@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { WaitingForApproval } from './WaitingForApproval';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface AuthWrapperProps {
   initialMode?: 'login' | 'register';
@@ -11,6 +12,7 @@ interface AuthWrapperProps {
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ initialMode = 'login', onBackToLanding }) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [showWaiting, setShowWaiting] = useState(false);
+  const { t } = useLanguage();
 
   if (showWaiting) {
     return <WaitingForApproval onBackToLogin={() => setShowWaiting(false)} />;
@@ -26,7 +28,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ initialMode = 'login',
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          홈으로
+          {t('auth.backToHome')}
         </button>
       )}
       {isLogin ? (
