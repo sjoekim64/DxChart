@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import type { PatientData } from '../types.ts';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 
 interface PatientListProps {
   patients: PatientData[];
@@ -127,7 +128,8 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
       <div className="border-b pb-4 mb-6 text-center">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold text-gray-800">Patient Management</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <LanguageSelector />
             <span className="px-3 py-1 text-sm bg-gray-100 rounded-full">
               {subscription.tier.toUpperCase()} Plan
             </span>
@@ -136,7 +138,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 onClick={onViewPricing}
                 className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200"
               >
-                {t('pricing.viewPlans') || 'View Plans'}
+                {t('pricing.viewPlans')}
               </button>
             )}
           </div>
@@ -151,33 +153,33 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 : 'bg-gray-400 text-gray-200 cursor-not-allowed'
             }`}
           >
-            Register New Patient
+            {t('patientList.registerNewPatient')}
           </button>
           <button
             onClick={handleStartFollowUp}
             className="px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
           >
-            Create Follow-up Chart
+            {t('patientList.createFollowUp')}
           </button>
           {onImportPDF && (
             <button
               onClick={onImportPDF}
               className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors duration-200"
             >
-              Import PDF Chart
+              {t('patientList.importPDF')}
             </button>
           )}
         </div>
       </div>
       
       {patients.length === 0 ? (
-        <p className="text-center text-gray-500 py-8">No patient records found. Click "Add New Patient" to get started.</p>
+        <p className="text-center text-gray-500 py-8">{t('patientList.noRecords')}</p>
       ) : (
         <div className="overflow-x-auto">
           {/* Search bar */}
           <div className="flex justify-between items-center mb-3 gap-2 flex-wrap">
             <label className="text-sm text-gray-700">
-              Search by File No. or Name:
+              {t('patientList.searchPlaceholder')}
             </label>
             <input
               type="text"
@@ -267,13 +269,13 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
         </div>
       )}
 
-      {/* Follow-up 환자 선택 모달 */}
+      {/* Follow-up Modal */}
       {showFollowUpModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b">
-              <h3 className="text-xl font-semibold text-gray-800">Follow-up 차트 작성 방법 선택</h3>
-              <p className="text-sm text-gray-600 mt-1">기존 환자를 선택하거나 새로운 follow-up 차트를 처음부터 작성할 수 있습니다.</p>
+              <h3 className="text-xl font-semibold text-gray-800">{t('patientList.followUpModalTitle')}</h3>
+              <p className="text-sm text-gray-600 mt-1">{t('patientList.followUpModalDesc')}</p>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               <div className="mb-6 pb-6 border-b">
@@ -284,19 +286,18 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                   }}
                   className="w-full px-6 py-4 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
                 >
-                  새로운 Follow-up 차트 작성 (처음부터)
+                  {t('patientList.newFollowUpFromScratch')}
                 </button>
-                <p className="text-xs text-gray-500 mt-2 text-center">환자 데이터가 없어도 처음부터 follow-up 차트를 작성할 수 있습니다.</p>
+                <p className="text-xs text-gray-500 mt-2 text-center">{t('patientList.newFollowUpFromScratchDesc')}</p>
               </div>
               {patients.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">기존 환자 데이터가 없습니다. 위의 버튼을 사용하여 새로운 follow-up 차트를 작성하세요.</p>
+                <p className="text-center text-gray-500 py-8">{t('patientList.noExistingPatients')}</p>
               ) : (
                 <>
-                  <h4 className="text-lg font-medium text-gray-700 mb-4">기존 환자 선택</h4>
+                  <h4 className="text-lg font-medium text-gray-700 mb-4">{t('patientList.selectExistingPatient')}</h4>
                 <ul className="divide-y divide-gray-200">
                   {patients
                     .reduce((acc, patient) => {
-                      // fileNo별로 그룹화하여 각 환자의 최신 차트만 표시 (모달에서는)
                       const existing = acc.find(p => p.fileNo === patient.fileNo);
                       if (!existing || new Date(patient.date) > new Date(existing.date)) {
                         if (existing) {
@@ -313,7 +314,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-lg font-medium text-indigo-600">{patient.name || `Patient (${patient.fileNo})`}</p>
-                          <p className="text-sm text-gray-500">File No: {patient.fileNo} | DOB: {patient.dob || 'N/A'} | 최근 방문일: {patient.date || 'N/A'}</p>
+                          <p className="text-sm text-gray-500">File No: {patient.fileNo} | DOB: {patient.dob || 'N/A'}</p>
                         </div>
                         <button
                           onClick={(e) => {
@@ -322,7 +323,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                           }}
                           className="px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors duration-200 text-sm"
                         >
-                          선택
+                          {t('common.confirm')}
                         </button>
                       </div>
                     </li>
@@ -336,7 +337,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 onClick={() => setShowFollowUpModal(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors duration-200"
               >
-                취소
+                {t('patientList.cancel')}
               </button>
             </div>
           </div>

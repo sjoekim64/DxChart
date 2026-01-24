@@ -278,6 +278,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.confirm': 'Confirm',
     'common.language': 'Language',
     
+    // Patient List
+    'patientList.registerNewPatient': 'Register New Patient',
+    'patientList.createFollowUp': 'Create Follow-up Chart',
+    'patientList.importPDF': 'Import PDF Chart',
+    'patientList.noRecords': 'No patient records found. Click "Add New Patient" to get started.',
+    'patientList.searchPlaceholder': 'Search by File No. or Name:',
+    'patientList.followUpModalTitle': 'Select Follow-up Chart Method',
+    'patientList.followUpModalDesc': 'Select an existing patient or create a new follow-up chart from scratch.',
+    'patientList.newFollowUpFromScratch': 'Create New Follow-up Chart (From Scratch)',
+    'patientList.newFollowUpFromScratchDesc': 'You can create a follow-up chart from scratch without existing patient data.',
+    'patientList.noExistingPatients': 'No existing patient data. Use the button above to create a new follow-up chart.',
+    'patientList.selectExistingPatient': 'Select Existing Patient',
+    'patientList.cancel': 'Cancel',
+    'patientList.view': 'View',
+    
     // Auth Additional
     'auth.forgotPassword': 'Forgot password?',
     'auth.resetPassword': 'Reset Password',
@@ -588,6 +603,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.success': '성공',
     'common.confirm': '확인',
     'common.language': '언어',
+    
+    // Patient List
+    'patientList.registerNewPatient': '신규 환자 등록',
+    'patientList.createFollowUp': 'Follow-up 차트 작성',
+    'patientList.importPDF': 'PDF 차트 가져오기',
+    'patientList.noRecords': '환자 기록이 없습니다. "신규 환자 등록"을 클릭하여 시작하세요.',
+    'patientList.searchPlaceholder': '차트 번호 또는 이름으로 검색:',
+    'patientList.followUpModalTitle': 'Follow-up 차트 작성 방법 선택',
+    'patientList.followUpModalDesc': '기존 환자를 선택하거나 새로운 follow-up 차트를 처음부터 작성할 수 있습니다.',
+    'patientList.newFollowUpFromScratch': '새로운 Follow-up 차트 작성 (처음부터)',
+    'patientList.newFollowUpFromScratchDesc': '환자 데이터가 없어도 처음부터 follow-up 차트를 작성할 수 있습니다.',
+    'patientList.noExistingPatients': '기존 환자 데이터가 없습니다. 위의 버튼을 사용하여 새로운 follow-up 차트를 작성하세요.',
+    'patientList.selectExistingPatient': '기존 환자 선택',
+    'patientList.cancel': '취소',
+    'patientList.view': '보기',
     
     // Auth Additional
     'auth.forgotPassword': '비밀번호를 잊으셨나요?',
@@ -900,6 +930,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.confirm': '確認',
     'common.language': '語言',
     
+    // Patient List
+    'patientList.registerNewPatient': '新增患者',
+    'patientList.createFollowUp': '建立追蹤病歷',
+    'patientList.importPDF': '匯入PDF病歷',
+    'patientList.noRecords': '未找到患者記錄。點擊「新增患者」開始。',
+    'patientList.searchPlaceholder': '依病歷號或姓名搜尋：',
+    'patientList.followUpModalTitle': '選擇追蹤病歷方式',
+    'patientList.followUpModalDesc': '選擇現有患者或從頭建立新的追蹤病歷。',
+    'patientList.newFollowUpFromScratch': '建立新追蹤病歷（從頭開始）',
+    'patientList.newFollowUpFromScratchDesc': '無需現有患者資料即可從頭建立追蹤病歷。',
+    'patientList.noExistingPatients': '無現有患者資料。請使用上方按鈕建立新追蹤病歷。',
+    'patientList.selectExistingPatient': '選擇現有患者',
+    'patientList.cancel': '取消',
+    'patientList.view': '查看',
+    
     // Auth Additional
     'auth.forgotPassword': '忘記密碼？',
     'auth.resetPassword': '重設密碼',
@@ -1210,6 +1255,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.success': '成功',
     'common.confirm': '确认',
     'common.language': '语言',
+    
+    // Patient List
+    'patientList.registerNewPatient': '新增患者',
+    'patientList.createFollowUp': '创建随访病历',
+    'patientList.importPDF': '导入PDF病历',
+    'patientList.noRecords': '未找到患者记录。点击"新增患者"开始。',
+    'patientList.searchPlaceholder': '按病历号或姓名搜索：',
+    'patientList.followUpModalTitle': '选择随访病历方式',
+    'patientList.followUpModalDesc': '选择现有患者或从头创建新的随访病历。',
+    'patientList.newFollowUpFromScratch': '创建新随访病历（从头开始）',
+    'patientList.newFollowUpFromScratchDesc': '无需现有患者数据即可从头创建随访病历。',
+    'patientList.noExistingPatients': '无现有患者数据。请使用上方按钮创建新随访病历。',
+    'patientList.selectExistingPatient': '选择现有患者',
+    'patientList.cancel': '取消',
+    'patientList.view': '查看',
     
     // Auth Additional
     'auth.forgotPassword': '忘记密码？',
@@ -1522,6 +1582,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.confirm': '確認',
     'common.language': '言語',
     
+    // Patient List
+    'patientList.registerNewPatient': '新規患者登録',
+    'patientList.createFollowUp': 'フォローアップカルテ作成',
+    'patientList.importPDF': 'PDFカルテをインポート',
+    'patientList.noRecords': '患者記録が見つかりません。「新規患者登録」をクリックして開始してください。',
+    'patientList.searchPlaceholder': 'カルテ番号または氏名で検索：',
+    'patientList.followUpModalTitle': 'フォローアップカルテの作成方法を選択',
+    'patientList.followUpModalDesc': '既存の患者を選択するか、最初から新しいフォローアップカルテを作成できます。',
+    'patientList.newFollowUpFromScratch': '新規フォローアップカルテを作成（最初から）',
+    'patientList.newFollowUpFromScratchDesc': '既存の患者データなしで最初からフォローアップカルテを作成できます。',
+    'patientList.noExistingPatients': '既存の患者データがありません。上のボタンを使用して新しいフォローアップカルテを作成してください。',
+    'patientList.selectExistingPatient': '既存の患者を選択',
+    'patientList.cancel': 'キャンセル',
+    'patientList.view': '表示',
+    
     // Auth Additional
     'auth.forgotPassword': 'パスワードをお忘れですか？',
     'auth.resetPassword': 'パスワードをリセット',
@@ -1832,6 +1907,21 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'common.success': 'Éxito',
     'common.confirm': 'Confirmar',
     'common.language': 'Idioma',
+    
+    // Patient List
+    'patientList.registerNewPatient': 'Registrar Nuevo Paciente',
+    'patientList.createFollowUp': 'Crear Historial de Seguimiento',
+    'patientList.importPDF': 'Importar Historial PDF',
+    'patientList.noRecords': 'No se encontraron registros de pacientes. Haga clic en "Agregar Nuevo Paciente" para comenzar.',
+    'patientList.searchPlaceholder': 'Buscar por No. de Archivo o Nombre:',
+    'patientList.followUpModalTitle': 'Seleccionar Método de Historial de Seguimiento',
+    'patientList.followUpModalDesc': 'Seleccione un paciente existente o cree un nuevo historial de seguimiento desde cero.',
+    'patientList.newFollowUpFromScratch': 'Crear Nuevo Historial de Seguimiento (Desde Cero)',
+    'patientList.newFollowUpFromScratchDesc': 'Puede crear un historial de seguimiento desde cero sin datos de paciente existentes.',
+    'patientList.noExistingPatients': 'No hay datos de pacientes existentes. Use el botón de arriba para crear un nuevo historial de seguimiento.',
+    'patientList.selectExistingPatient': 'Seleccionar Paciente Existente',
+    'patientList.cancel': 'Cancelar',
+    'patientList.view': 'Ver',
     
     // Auth Additional
     'auth.forgotPassword': '¿Olvidó su contraseña?',
