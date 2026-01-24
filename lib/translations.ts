@@ -329,7 +329,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'nav.learnMore': '자세히 보기',
     
     // Landing Page
-    'app.title': '혈인원',
+    'app.title': 'Hoelinone',
     'app.subtitle': '환자 차트 관리 시스템',
     'app.description': '한의원을 위한 디지털 환자 차트 솔루션. 효율적인 진료 기록과 체계적인 환자 관리를 경험하세요.',
     'app.getStarted': '시작하기',
@@ -640,7 +640,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'nav.learnMore': '了解更多',
     
     // Landing Page
-    'app.title': '혈인원',
+    'app.title': 'Hoelinone',
     'app.subtitle': '病患圖表管理系統',
     'app.description': '專為中醫診所設計的數位病患圖表解決方案。體驗高效的醫療記錄和系統化的病患管理。',
     'app.getStarted': '開始使用',
@@ -951,7 +951,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'nav.learnMore': '了解更多',
     
     // Landing Page
-    'app.title': '혈인원',
+    'app.title': 'Hoelinone',
     'app.subtitle': '患者病历管理系统',
     'app.description': '面向中医诊所的数字化患者病历解决方案。体验高效的医疗记录和系统化的患者管理。',
     'app.getStarted': '开始使用',
@@ -1262,7 +1262,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'nav.learnMore': '詳細を見る',
     
     // Landing Page
-    'app.title': '혈인원',
+    'app.title': 'Hoelinone',
     'app.subtitle': '患者カルテ管理システム',
     'app.description': '東洋医学クリニック向けのデジタル患者カルテソリューション。効率的な診療記録と体系的な患者管理を体験してください。',
     'app.getStarted': '始める',
