@@ -27,13 +27,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
   useEffect(() => {
     const fetchPricingTiers = async () => {
       try {
+        console.log('🔄 Fetching pricing tiers...');
         const response = await fetch('/api/pricing-tiers');
+        console.log('📡 API Response status:', response.status);
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Pricing tiers loaded:', data);
           setPricingTiers(data);
+        } else {
+          console.error('❌ API returned error:', response.status);
         }
       } catch (error) {
-        console.error('Failed to fetch pricing tiers:', error);
+        console.error('❌ Failed to fetch pricing tiers:', error);
       } finally {
         setLoading(false);
       }
@@ -70,7 +75,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 {t('app.title')}
               </span>
             </div>
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="flex items-center space-x-4 md:space-x-6">
               <button
                 onClick={() => scrollToSection('features')}
                 className="text-slate-600 hover:text-emerald-600 font-medium transition-colors"
