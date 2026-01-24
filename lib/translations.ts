@@ -26,12 +26,30 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     
     // Features
     'features.title': 'Key Features',
+    'features.subtitle': 'Everything you need to manage your clinic efficiently',
     'features.digitalChart': 'Digital Patient Chart',
     'features.digitalChartDesc': 'Digitize traditional paper charts for easy management and searching.',
     'features.patientManagement': 'Patient Records Management',
     'features.patientManagementDesc': 'Systematically manage patient information and treatment history.',
     'features.printChart': 'Chart Printing',
     'features.printChartDesc': 'Print charts in a clean format for medical records.',
+    'features.aiAssistant': 'AI Assistant',
+    'features.aiAssistantDesc': 'Get intelligent suggestions and insights powered by advanced AI technology.',
+    'features.notifications': 'Smart Notifications',
+    'features.notificationsDesc': 'Automated reminders via email, SMS, and messaging platforms.',
+    'features.security': 'Secure & Private',
+    'features.securityDesc': 'Enterprise-grade security to protect sensitive patient information.',
+    
+    // Landing Page Extended
+    'landing.badge': 'Trusted by Oriental Medicine Clinics',
+    'landing.feature1': 'Free to start',
+    'landing.feature2': 'No credit card required',
+    'landing.patients': 'Patients',
+    'landing.satisfaction': 'Satisfaction',
+    'cta.badge': 'Start for Free',
+    'cta.title': 'Ready to transform your clinic?',
+    'footer.product': 'Product',
+    'footer.contact': 'Contact',
     
     // Auth
     'auth.loginTitle': 'Login',
@@ -289,12 +307,30 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     
     // Features
     'features.title': '주요 기능',
+    'features.subtitle': '효율적인 한의원 운영에 필요한 모든 것',
     'features.digitalChart': '디지털 환자 차트',
     'features.digitalChartDesc': '기존 종이 차트를 디지털화하여 쉽게 관리하고 검색할 수 있습니다.',
     'features.patientManagement': '환자 기록 관리',
     'features.patientManagementDesc': '환자 정보와 치료 이력을 체계적으로 관리합니다.',
     'features.printChart': '차트 출력',
     'features.printChartDesc': '깔끔한 형식으로 차트를 출력하여 진료 기록을 보관합니다.',
+    'features.aiAssistant': 'AI 어시스턴트',
+    'features.aiAssistantDesc': '첨단 AI 기술로 지능적인 제안과 인사이트를 제공합니다.',
+    'features.notifications': '스마트 알림',
+    'features.notificationsDesc': '이메일, SMS, 메시징 플랫폼을 통한 자동 알림 기능.',
+    'features.security': '보안 및 개인정보 보호',
+    'features.securityDesc': '민감한 환자 정보를 보호하는 기업 수준의 보안.',
+    
+    // Landing Page Extended
+    'landing.badge': '한의원의 신뢰받는 파트너',
+    'landing.feature1': '무료로 시작',
+    'landing.feature2': '신용카드 불필요',
+    'landing.patients': '환자',
+    'landing.satisfaction': '만족도',
+    'cta.badge': '무료로 시작하세요',
+    'cta.title': '한의원을 혁신할 준비가 되셨나요?',
+    'footer.product': '제품',
+    'footer.contact': '연락처',
     
     // Auth
     'auth.loginTitle': '로그인',
@@ -558,6 +594,24 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'features.patientManagementDesc': '系統化管理病患資訊和治療歷史。',
     'features.printChart': '圖表列印',
     'features.printChartDesc': '以清晰格式列印圖表，保存醫療記錄。',
+    'features.aiAssistant': 'AI 助理',
+    'features.aiAssistantDesc': '透過先進的AI技術提供智慧建議和洞察。',
+    'features.notifications': '智慧通知',
+    'features.notificationsDesc': '透過電子郵件、簡訊和訊息平台自動發送提醒。',
+    'features.security': '安全與隱私',
+    'features.securityDesc': '企業級安全措施保護敏感的病患資訊。',
+    'features.subtitle': '高效管理診所所需的一切',
+    
+    // Landing Page Extended
+    'landing.badge': '中醫診所信賴的夥伴',
+    'landing.feature1': '免費開始',
+    'landing.feature2': '無需信用卡',
+    'landing.patients': '病患',
+    'landing.satisfaction': '滿意度',
+    'cta.badge': '立即免費開始',
+    'cta.title': '準備好轉型您的診所了嗎？',
+    'footer.product': '產品',
+    'footer.contact': '聯繫方式',
     
     // Auth
     'auth.loginTitle': '登入',
@@ -821,6 +875,24 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'features.patientManagementDesc': '系统化管理患者信息和治疗历史。',
     'features.printChart': '病历打印',
     'features.printChartDesc': '以整洁的格式打印病历用于医疗记录。',
+    'features.aiAssistant': 'AI 助手',
+    'features.aiAssistantDesc': '通过先进的AI技术提供智能建议和洞察。',
+    'features.notifications': '智能通知',
+    'features.notificationsDesc': '通过电子邮件、短信和消息平台自动发送提醒。',
+    'features.security': '安全与隐私',
+    'features.securityDesc': '企业级安全措施保护敏感的患者信息。',
+    'features.subtitle': '高效管理诊所所需的一切',
+    
+    // Landing Page Extended
+    'landing.badge': '中医诊所信赖的伙伴',
+    'landing.feature1': '免费开始',
+    'landing.feature2': '无需信用卡',
+    'landing.patients': '患者',
+    'landing.satisfaction': '满意度',
+    'cta.badge': '立即免费开始',
+    'cta.title': '准备好转型您的诊所了吗？',
+    'footer.product': '产品',
+    'footer.contact': '联系方式',
     
     // Auth
     'auth.loginTitle': '登录',
@@ -1084,6 +1156,24 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'features.patientManagementDesc': '患者情報と治療履歴を体系的に管理します。',
     'features.printChart': 'カルテ印刷',
     'features.printChartDesc': 'きれいな形式でカルテを印刷し、診療記録を保管します。',
+    'features.aiAssistant': 'AIアシスタント',
+    'features.aiAssistantDesc': '高度なAI技術でインテリジェントな提案と洞察を提供します。',
+    'features.notifications': 'スマート通知',
+    'features.notificationsDesc': 'メール、SMS、メッセージングプラットフォームによる自動リマインダー。',
+    'features.security': 'セキュリティとプライバシー',
+    'features.securityDesc': '機密性の高い患者情報を保護する企業レベルのセキュリティ。',
+    'features.subtitle': '効率的なクリニック運営に必要なすべて',
+    
+    // Landing Page Extended
+    'landing.badge': '東洋医学クリニックに信頼される',
+    'landing.feature1': '無料で開始',
+    'landing.feature2': 'クレジットカード不要',
+    'landing.patients': '患者',
+    'landing.satisfaction': '満足度',
+    'cta.badge': '無料で始める',
+    'cta.title': 'クリニックを変革する準備はできていますか？',
+    'footer.product': '製品',
+    'footer.contact': 'お問い合わせ',
     
     // Auth
     'auth.loginTitle': 'ログイン',
@@ -1347,6 +1437,24 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'features.patientManagementDesc': 'Gestione sistemáticamente la información del paciente y el historial de tratamiento.',
     'features.printChart': 'Impresión de Fichas',
     'features.printChartDesc': 'Imprima fichas en un formato limpio para los registros médicos.',
+    'features.aiAssistant': 'Asistente de IA',
+    'features.aiAssistantDesc': 'Obtenga sugerencias e insights inteligentes con tecnología de IA avanzada.',
+    'features.notifications': 'Notificaciones Inteligentes',
+    'features.notificationsDesc': 'Recordatorios automáticos por correo electrónico, SMS y plataformas de mensajería.',
+    'features.security': 'Seguro y Privado',
+    'features.securityDesc': 'Seguridad de nivel empresarial para proteger la información sensible del paciente.',
+    'features.subtitle': 'Todo lo que necesita para gestionar su clínica eficientemente',
+    
+    // Landing Page Extended
+    'landing.badge': 'De confianza para Clínicas de Medicina Oriental',
+    'landing.feature1': 'Comience gratis',
+    'landing.feature2': 'Sin tarjeta de crédito',
+    'landing.patients': 'Pacientes',
+    'landing.satisfaction': 'Satisfacción',
+    'cta.badge': 'Comience Gratis',
+    'cta.title': '¿Listo para transformar su clínica?',
+    'footer.product': 'Producto',
+    'footer.contact': 'Contacto',
     
     // Auth
     'auth.loginTitle': 'Iniciar Sesión',
