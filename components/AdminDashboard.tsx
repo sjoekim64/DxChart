@@ -3,6 +3,7 @@ import { database } from '../lib/database';
 import type { User } from '../types/auth';
 import { NotificationSettings } from './NotificationSettings';
 import { AISettings } from './AISettings';
+import { PricingSettings } from './PricingSettings';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminMode } from '../hooks/useAdminMode';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -18,6 +19,7 @@ export const AdminDashboard: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
+  const [showPricingSettings, setShowPricingSettings] = useState(false);
   
   const handleLogout = () => {
     clearAdminMode();
@@ -109,8 +111,14 @@ export const AdminDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">{t('admin.title')}</h1>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
               <LanguageSelector />
+              <button
+                onClick={() => setShowPricingSettings(true)}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                {t('pricing.title')}
+              </button>
               <button
                 onClick={() => setShowAISettings(true)}
                 className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
@@ -270,6 +278,10 @@ export const AdminDashboard: React.FC = () => {
       
       {showAISettings && (
         <AISettings onClose={() => setShowAISettings(false)} />
+      )}
+      
+      {showPricingSettings && (
+        <PricingSettings onClose={() => setShowPricingSettings(false)} />
       )}
     </div>
   );

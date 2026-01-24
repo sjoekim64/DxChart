@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { AuthWrapper } from './components/AuthWrapper';
 import { LandingPage } from './components/LandingPage';
 import { PatientForm } from './components/PatientForm';
@@ -9,6 +10,7 @@ import { PatientList } from './components/PatientList';
 import { AdminRoute } from './components/AdminRoute';
 import { PDFUploader } from './components/PDFUploader';
 import { ProfileManagement } from './components/ProfileManagement';
+import { PricingPage } from './components/PricingPage';
 import { useAdminMode } from './hooks/useAdminMode';
 import type { PatientData } from './types';
 import { database } from './lib/database';
@@ -735,7 +737,9 @@ const App: React.FC = () => {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <PatientChartApp />
+        <SubscriptionProvider>
+          <PatientChartApp />
+        </SubscriptionProvider>
       </AuthProvider>
     </LanguageProvider>
   );
