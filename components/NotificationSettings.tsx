@@ -93,7 +93,7 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
       const emailjs = await import('@emailjs/browser');
       emailjs.default.init(config.emailjs.publicKey);
 
-      const locale = language === 'ko' ? 'ko-KR' : language === 'zh-TW' ? 'zh-TW' : language === 'ja' ? 'ja-JP' : language === 'es' ? 'es-ES' : 'en-US';
+      const locale = language === 'ko' ? 'ko-KR' : language === 'zh-TW' ? 'zh-TW' : language === 'zh-CN' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : language === 'es' ? 'es-ES' : 'en-US';
       const templateParams = {
         subject: t('notification.testEmailSubject'),
         name: 'Admin',
@@ -171,7 +171,7 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
     setMessage({ type: 'info', text: t('notification.sending') });
 
     try {
-      const locale = language === 'ko' ? 'ko-KR' : language === 'zh-TW' ? 'zh-TW' : language === 'ja' ? 'ja-JP' : language === 'es' ? 'es-ES' : 'en-US';
+      const locale = language === 'ko' ? 'ko-KR' : language === 'zh-TW' ? 'zh-TW' : language === 'zh-CN' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : language === 'es' ? 'es-ES' : 'en-US';
       const teamsMessage = {
         "@type": "MessageCard",
         "@context": "http://schema.org/extensions",
