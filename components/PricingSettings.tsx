@@ -60,27 +60,55 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
     loadPricingSettings();
   }, []);
 
-  const loadPricingSettings = () => {
-    const saved = localStorage.getItem('pricingTiers');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setTiers(parsed);
-      } catch (e) {
-        console.error('Failed to load pricing settings:', e);
+  const loadPricingSettings = async () => {
+    try {
+      const response = await fetch('/api/pricing-tiers');
+      if (response.ok) {
+        const data = await response.json();
+        const formattedTiers = data.map((tier: any) => ({
+          id: tier.tierId,
+          name: tier.name,
+          price: tier.price / 100,
+          currency: tier.currency,
+          interval: tier.interval,
+          features: tier.features,
+          stripePriceId: tier.stripePriceId,
+          isPopular: tier.isPopular,
+        }));
+        setTiers(formattedTiers);
       }
+    } catch (e) {
+      console.error('Failed to load pricing settings:', e);
     }
   };
 
   const savePricingSettings = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('pricingTiers', JSON.stringify(tiers));
+      for (const tier of tiers) {
+        const response = await fetch(`/api/admin/pricing-tiers/${tier.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: tier.name,
+            price: Math.round(tier.price * 100),
+            currency: tier.currency,
+            interval: tier.interval,
+            features: tier.features,
+            stripePriceId: tier.stripePriceId || null,
+            isPopular: tier.isPopular,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to update tier: ${tier.id}`);
+        }
+      }
       setMessage({ type: 'success', text: t('pricing.saveSuccess') });
       setToastMessage(t('pricing.saveSuccess'));
       setShowToast(true);
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
+      console.error('Failed to save pricing settings:', error);
       setMessage({ type: 'error', text: t('pricing.saveFailed') });
     } finally {
       setIsSaving(false);
