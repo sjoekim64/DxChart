@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import Toast from './Toast';
 
 interface NotificationConfig {
   email: string;
@@ -51,6 +52,8 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
   const [activeTab, setActiveTab] = useState<'email' | 'sms' | 'teams'>('email');
   const [isTesting, setIsTesting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem(NOTIFICATION_CONFIG_KEY);
@@ -74,6 +77,8 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
       enableTeamsNotifications: config.enableTeamsNotifications,
     }));
     setMessage({ type: 'success', text: t('notification.saved') });
+    setToastMessage(t('notification.saved'));
+    setShowToast(true);
   };
 
   const handleTestEmail = async () => {
@@ -217,9 +222,16 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
   const twilioNotes = tArray('notification.twilioNoteItems');
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <>
+      <Toast 
+        message={toastMessage}
+        type="success"
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">{t('notification.title')}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
@@ -499,8 +511,9 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
             </button>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

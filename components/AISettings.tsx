@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import Toast from './Toast';
 
 export type AIProvider = 'openai' | 'gemini' | 'claude';
 
@@ -56,6 +57,8 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const savedConfig = localStorage.getItem(AI_CONFIG_KEY);
@@ -100,6 +103,8 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     try {
       localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
       setMessage({ type: 'success', text: t('ai.saved') });
+      setToastMessage(t('ai.saved'));
+      setShowToast(true);
     } catch (e) {
       setMessage({ type: 'error', text: t('ai.saveFailed') });
     } finally {
@@ -203,9 +208,16 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const aiNotes = tArray('ai.noteItems');
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <>
+      <Toast 
+        message={toastMessage}
+        type="success"
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">{t('ai.title')}</h2>
             <button
@@ -362,9 +374,10 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

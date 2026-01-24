@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import Toast from './Toast';
 
 export interface PricingTier {
   id: string;
@@ -52,6 +53,8 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingTier, setEditingTier] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     loadPricingSettings();
@@ -74,6 +77,8 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
     try {
       localStorage.setItem('pricingTiers', JSON.stringify(tiers));
       setMessage({ type: 'success', text: t('pricing.saveSuccess') });
+      setToastMessage(t('pricing.saveSuccess'));
+      setShowToast(true);
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       setMessage({ type: 'error', text: t('pricing.saveFailed') });
@@ -119,9 +124,16 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <>
+      <Toast 
+        message={toastMessage}
+        type="success"
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">{t('pricing.title')}</h2>
             <button
@@ -283,9 +295,10 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
               {isSaving ? t('common.saving') : t('common.save')}
             </button>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
