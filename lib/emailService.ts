@@ -5,6 +5,7 @@ interface NotificationConfig {
   phoneNumber: string;
   enableEmailNotifications: boolean;
   enableSMSNotifications: boolean;
+  enableTeamsNotifications: boolean;
   emailjs: {
     serviceId: string;
     templateId: string;
@@ -14,6 +15,9 @@ interface NotificationConfig {
     accountSid: string;
     authToken: string;
     fromNumber: string;
+  };
+  teams: {
+    webhookUrl: string;
   };
 }
 
@@ -31,6 +35,7 @@ const getNotificationConfig = (): NotificationConfig => {
     phoneNumber: '',
     enableEmailNotifications: true,
     enableSMSNotifications: false,
+    enableTeamsNotifications: false,
     emailjs: {
       serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_l4jlrhr',
       templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_g0mc9fr',
@@ -40,6 +45,9 @@ const getNotificationConfig = (): NotificationConfig => {
       accountSid: '',
       authToken: '',
       fromNumber: '',
+    },
+    teams: {
+      webhookUrl: '',
     },
   };
 };
@@ -242,23 +250,77 @@ export const sendSMSNotification = async (message: string, phoneNumber?: string)
   }
 };
 
-// 관리자 알림 설정
+export const sendTeamsNotification = async (
+  title: string,
+  subtitle: string,
+  facts: Array<{ name: string; value: string }>
+): Promise<boolean> => {
+  try {
+    const config = getNotificationConfig();
+    
+    if (!config.enableTeamsNotifications) {
+      console.log('💬 Teams 알림이 비활성화되어 있습니다.');
+      return false;
+    }
+    
+    if (!config.teams?.webhookUrl) {
+      console.warn('⚠️ Teams Webhook URL이 설정되지 않았습니다.');
+      return false;
+    }
+    
+    console.log('💬 Teams 알림 발송 시작');
+    
+    const teamsMessage = {
+      "@type": "MessageCard",
+      "@context": "http://schema.org/extensions",
+      "themeColor": "0076D7",
+      "summary": title,
+      "sections": [{
+        "activityTitle": title,
+        "activitySubtitle": subtitle,
+        "activityImage": "https://cdn-icons-png.flaticon.com/512/3774/3774299.png",
+        "facts": facts,
+        "markdown": true
+      }]
+    };
+
+    const response = await fetch(config.teams.webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(teamsMessage),
+    });
+
+    if (response.ok) {
+      console.log('✅ Teams 알림 발송 성공');
+      return true;
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Teams 발송 실패:', errorText);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Teams 알림 발송 실패:', error);
+    return false;
+  }
+};
+
 export interface AdminNotificationSettings {
   email: string;
   phoneNumber: string;
   enableEmailNotifications: boolean;
   enableSMSNotifications: boolean;
+  enableTeamsNotifications: boolean;
 }
 
-// 통합 알림 발송
 export const sendAdminNotification = async (
   type: 'registration' | 'login',
   data: any,
   settings: AdminNotificationSettings
-): Promise<{ email: boolean; sms: boolean }> => {
-  const results = { email: false, sms: false };
+): Promise<{ email: boolean; sms: boolean; teams: boolean }> => {
+  const results = { email: false, sms: false, teams: false };
   
-  // 이메일 알림
   if (settings.enableEmailNotifications) {
     if (type === 'registration') {
       results.email = await sendRegistrationNotification(data);
@@ -267,13 +329,33 @@ export const sendAdminNotification = async (
     }
   }
   
-  // SMS 알림
   if (settings.enableSMSNotifications && settings.phoneNumber) {
     const smsMessage = type === 'registration' 
       ? `새 회원가입: ${data.username} (${data.clinicName})`
       : `로그인: ${data.username} (${data.clinicName})`;
     
     results.sms = await sendSMSNotification(smsMessage, settings.phoneNumber);
+  }
+  
+  if (settings.enableTeamsNotifications) {
+    const title = type === 'registration' 
+      ? '새로운 회원가입 요청'
+      : '로그인 알림';
+    const subtitle = new Date().toLocaleString('ko-KR');
+    const facts = type === 'registration' ? [
+      { name: '사용자명', value: data.username },
+      { name: '한의원명', value: data.clinicName },
+      { name: '치료사명', value: data.therapistName },
+      { name: '면허번호', value: data.therapistLicenseNo },
+      { name: '가입시간', value: data.registrationTime },
+    ] : [
+      { name: '사용자명', value: data.username },
+      { name: '한의원명', value: data.clinicName },
+      { name: '치료사명', value: data.therapistName },
+      { name: '로그인시간', value: data.loginTime },
+    ];
+    
+    results.teams = await sendTeamsNotification(title, subtitle, facts);
   }
   
   return results;

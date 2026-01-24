@@ -5,6 +5,7 @@ interface NotificationConfig {
   phoneNumber: string;
   enableEmailNotifications: boolean;
   enableSMSNotifications: boolean;
+  enableTeamsNotifications: boolean;
   emailjs: {
     serviceId: string;
     templateId: string;
@@ -15,6 +16,9 @@ interface NotificationConfig {
     authToken: string;
     fromNumber: string;
   };
+  teams: {
+    webhookUrl: string;
+  };
 }
 
 const NOTIFICATION_CONFIG_KEY = 'notificationConfig';
@@ -24,6 +28,7 @@ const DEFAULT_CONFIG: NotificationConfig = {
   phoneNumber: '',
   enableEmailNotifications: true,
   enableSMSNotifications: false,
+  enableTeamsNotifications: false,
   emailjs: {
     serviceId: 'service_l4jlrhr',
     templateId: 'template_g0mc9fr',
@@ -34,11 +39,14 @@ const DEFAULT_CONFIG: NotificationConfig = {
     authToken: '',
     fromNumber: '',
   },
+  teams: {
+    webhookUrl: '',
+  },
 };
 
 export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [config, setConfig] = useState<NotificationConfig>(DEFAULT_CONFIG);
-  const [activeTab, setActiveTab] = useState<'email' | 'sms'>('email');
+  const [activeTab, setActiveTab] = useState<'email' | 'sms' | 'teams'>('email');
   const [isTesting, setIsTesting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
@@ -61,6 +69,7 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
       phoneNumber: config.phoneNumber,
       enableEmailNotifications: config.enableEmailNotifications,
       enableSMSNotifications: config.enableSMSNotifications,
+      enableTeamsNotifications: config.enableTeamsNotifications,
     }));
     setMessage({ type: 'success', text: '알림 설정이 저장되었습니다.' });
   };
@@ -149,6 +158,58 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
     }
   };
 
+  const handleTestTeams = async () => {
+    if (!config.teams.webhookUrl) {
+      setMessage({ type: 'error', text: 'Teams Webhook URL을 입력해주세요.' });
+      return;
+    }
+
+    setIsTesting(true);
+    setMessage({ type: 'info', text: 'Teams 테스트 메시지 발송 중...' });
+
+    try {
+      const teamsMessage = {
+        "@type": "MessageCard",
+        "@context": "http://schema.org/extensions",
+        "themeColor": "0076D7",
+        "summary": "환자차트시스템 테스트 알림",
+        "sections": [{
+          "activityTitle": "환자차트시스템 알림",
+          "activitySubtitle": new Date().toLocaleString('ko-KR'),
+          "activityImage": "https://cdn-icons-png.flaticon.com/512/3774/3774299.png",
+          "facts": [{
+            "name": "상태",
+            "value": "테스트 메시지"
+          }, {
+            "name": "메시지",
+            "value": "Teams 알림 설정이 정상적으로 작동합니다."
+          }],
+          "markdown": true
+        }]
+      };
+
+      const response = await fetch(config.teams.webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(teamsMessage),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Teams 테스트 메시지가 발송되었습니다! Teams 채널을 확인해주세요.' });
+      } else {
+        const errorText = await response.text();
+        setMessage({ type: 'error', text: `Teams 발송 실패: ${errorText || '알 수 없는 오류'}` });
+      }
+    } catch (error: any) {
+      console.error('Teams 발송 실패:', error);
+      setMessage({ type: 'error', text: `Teams 발송 실패: ${error?.message || '네트워크 오류'}` });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -180,6 +241,12 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
               className={`px-4 py-2 font-medium ${activeTab === 'sms' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
             >
               SMS 설정
+            </button>
+            <button
+              onClick={() => setActiveTab('teams')}
+              className={`px-4 py-2 font-medium ${activeTab === 'teams' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            >
+              Teams 설정
             </button>
           </div>
 
@@ -352,6 +419,63 @@ export const NotificationSettings: React.FC<{ onClose: () => void }> = ({ onClos
                 className="w-full mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {isTesting ? '발송 중...' : '테스트 SMS 발송'}
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'teams' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h3 className="font-medium text-gray-900">Teams 알림 활성화</h3>
+                  <p className="text-sm text-gray-500">회원가입, 로그인 시 Teams 채널로 알림을 받습니다</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.enableTeamsNotifications}
+                    onChange={(e) => setConfig({ ...config, enableTeamsNotifications: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium text-gray-800 mb-3">Microsoft Teams Webhook 설정</h4>
+                <p className="text-sm text-gray-500 mb-4">
+                  Teams 채널에서 Incoming Webhook 커넥터를 추가하고 Webhook URL을 입력하세요.
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
+                  <input
+                    type="url"
+                    value={config.teams.webhookUrl}
+                    onChange={(e) => setConfig({ ...config, teams: { ...config.teams, webhookUrl: e.target.value } })}
+                    placeholder="https://outlook.office.com/webhook/..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Webhook 설정 방법</h4>
+                <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                  <li>Teams에서 알림을 받을 채널 선택</li>
+                  <li>채널 이름 옆 '...' 클릭 → 커넥터</li>
+                  <li>'Incoming Webhook' 찾아서 '구성' 클릭</li>
+                  <li>이름 입력 후 '만들기' 클릭</li>
+                  <li>생성된 Webhook URL 복사 → 위 입력란에 붙여넣기</li>
+                </ol>
+              </div>
+
+              <button
+                onClick={handleTestTeams}
+                disabled={isTesting}
+                className="w-full mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                {isTesting ? '발송 중...' : '테스트 메시지 발송'}
               </button>
             </div>
           )}

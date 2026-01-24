@@ -50,8 +50,9 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 
 ## Admin Features
 - User management (approve/reject/delete)
-- Notification settings (EmailJS for email, Twilio for SMS)
+- Notification settings (EmailJS for email, Twilio for SMS, Microsoft Teams)
   - Email: Configure EmailJS service ID, template ID, public key
   - SMS: Configure Twilio account SID, auth token, phone numbers
-  - Test buttons for both email and SMS
+  - Teams: Configure Incoming Webhook URL
+  - Test buttons for email, SMS, and Teams
 - AI API settings (OpenAI API key, model selection, token limits)
