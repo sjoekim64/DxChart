@@ -11,6 +11,12 @@ export const LANGUAGES: { code: Language; name: string; nativeName: string }[] =
 
 export const translations: Record<Language, Record<string, string | string[]>> = {
   en: {
+    // Navigation
+    'nav.features': 'Features',
+    'nav.pricing': 'Pricing',
+    'nav.contact': 'Contact',
+    'nav.learnMore': 'Learn More',
+    
     // Landing Page
     'app.title': 'Hoelinone',
     'app.subtitle': 'Patient Chart Management System',
@@ -58,6 +64,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': 'Professional',
     'pricing.entName': 'Enterprise',
     'pricing.popular': 'Most Popular',
+    'pricing.month': 'month',
+    'pricing.upTo': 'Up to',
+    'pricing.patientsLabel': 'patients',
+    'pricing.unlimitedPatients': 'Unlimited patients',
+    'pricing.selectPlan': 'Select Plan',
     'pricing.basicFeature1': 'Up to 50 patients',
     'pricing.basicFeature2': 'Basic charting',
     'pricing.basicFeature3': 'Email support',
@@ -311,6 +322,12 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   },
   
   ko: {
+    // Navigation
+    'nav.features': '기능',
+    'nav.pricing': '가격',
+    'nav.contact': '연락처',
+    'nav.learnMore': '자세히 보기',
+    
     // Landing Page
     'app.title': '혈인원',
     'app.subtitle': '환자 차트 관리 시스템',
@@ -358,6 +375,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': '프로페셔널',
     'pricing.entName': '엔터프라이즈',
     'pricing.popular': '가장 인기',
+    'pricing.month': '월',
+    'pricing.upTo': '최대',
+    'pricing.patientsLabel': '명 환자',
+    'pricing.unlimitedPatients': '무제한 환자',
+    'pricing.selectPlan': '플랜 선택',
     'pricing.basicFeature1': '최대 50명 환자',
     'pricing.basicFeature2': '기본 차트 작성',
     'pricing.basicFeature3': '이메일 지원',
@@ -611,6 +633,12 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   },
   
   'zh-TW': {
+    // Navigation
+    'nav.features': '功能',
+    'nav.pricing': '價格',
+    'nav.contact': '聯繫',
+    'nav.learnMore': '了解更多',
+    
     // Landing Page
     'app.title': '혈인원',
     'app.subtitle': '病患圖表管理系統',
@@ -658,6 +686,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': '專業版',
     'pricing.entName': '企業版',
     'pricing.popular': '最受歡迎',
+    'pricing.month': '月',
+    'pricing.upTo': '最多',
+    'pricing.patientsLabel': '位病患',
+    'pricing.unlimitedPatients': '無限病患',
+    'pricing.selectPlan': '選擇方案',
     'pricing.basicFeature1': '最多50位病患',
     'pricing.basicFeature2': '基本圖表功能',
     'pricing.basicFeature3': '電子郵件支援',
@@ -911,6 +944,12 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   },
   
   'zh-CN': {
+    // Navigation
+    'nav.features': '功能',
+    'nav.pricing': '价格',
+    'nav.contact': '联系',
+    'nav.learnMore': '了解更多',
+    
     // Landing Page
     'app.title': '혈인원',
     'app.subtitle': '患者病历管理系统',
@@ -958,6 +997,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': '专业版',
     'pricing.entName': '企业版',
     'pricing.popular': '最受欢迎',
+    'pricing.month': '月',
+    'pricing.upTo': '最多',
+    'pricing.patientsLabel': '位患者',
+    'pricing.unlimitedPatients': '无限患者',
+    'pricing.selectPlan': '选择方案',
     'pricing.basicFeature1': '最多50位患者',
     'pricing.basicFeature2': '基本病历功能',
     'pricing.basicFeature3': '邮件支持',
@@ -1211,6 +1255,12 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   },
   
   ja: {
+    // Navigation
+    'nav.features': '機能',
+    'nav.pricing': '料金',
+    'nav.contact': 'お問い合わせ',
+    'nav.learnMore': '詳細を見る',
+    
     // Landing Page
     'app.title': '혈인원',
     'app.subtitle': '患者カルテ管理システム',
@@ -1258,6 +1308,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': 'プロフェッショナル',
     'pricing.entName': 'エンタープライズ',
     'pricing.popular': '一番人気',
+    'pricing.month': '月',
+    'pricing.upTo': '最大',
+    'pricing.patientsLabel': '名の患者',
+    'pricing.unlimitedPatients': '無制限の患者',
+    'pricing.selectPlan': 'プランを選択',
     'pricing.basicFeature1': '最大50名の患者',
     'pricing.basicFeature2': '基本的なカルテ機能',
     'pricing.basicFeature3': 'メールサポート',
@@ -1511,6 +1566,12 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   },
   
   es: {
+    // Navigation
+    'nav.features': 'Características',
+    'nav.pricing': 'Precios',
+    'nav.contact': 'Contacto',
+    'nav.learnMore': 'Más Información',
+    
     // Landing Page
     'app.title': 'Hoelinone',
     'app.subtitle': 'Sistema de Gestión de Fichas de Pacientes',
@@ -1558,6 +1619,11 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'pricing.proName': 'Profesional',
     'pricing.entName': 'Empresa',
     'pricing.popular': 'Más Popular',
+    'pricing.month': 'mes',
+    'pricing.upTo': 'Hasta',
+    'pricing.patientsLabel': 'pacientes',
+    'pricing.unlimitedPatients': 'Pacientes ilimitados',
+    'pricing.selectPlan': 'Seleccionar Plan',
     'pricing.basicFeature1': 'Hasta 50 pacientes',
     'pricing.basicFeature2': 'Fichas básicas',
     'pricing.basicFeature3': 'Soporte por correo',

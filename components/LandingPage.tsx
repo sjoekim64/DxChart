@@ -1,6 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
+
+interface PricingTier {
+  id: number;
+  tierId: string;
+  name: string;
+  price: number;
+  currency: string;
+  interval: string;
+  features: string[];
+  isPopular: boolean;
+  patientLimit: number | null;
+}
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -9,6 +21,39 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
   const { t } = useLanguage();
+  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPricingTiers = async () => {
+      try {
+        const response = await fetch('/api/pricing-tiers');
+        if (response.ok) {
+          const data = await response.json();
+          setPricingTiers(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch pricing tiers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPricingTiers();
+  }, []);
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const formatPrice = (priceInCents: number, currency: string) => {
+    const price = priceInCents / 100;
+    if (currency === 'USD') return `$${price.toFixed(2)}`;
+    if (currency === 'KRW') return `₩${price.toLocaleString()}`;
+    return `${price.toFixed(2)} ${currency}`;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -24,6 +69,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                 {t('app.title')}
               </span>
+            </div>
+            <div className="hidden md:flex items-center space-x-6">
+              <button
+                onClick={() => scrollToSection('features')}
+                className="text-slate-600 hover:text-emerald-600 font-medium transition-colors"
+              >
+                {t('nav.features')}
+              </button>
+              <button
+                onClick={() => scrollToSection('pricing')}
+                className="text-slate-600 hover:text-emerald-600 font-medium transition-colors"
+              >
+                {t('nav.pricing')}
+              </button>
+              <button
+                onClick={() => scrollToSection('contact')}
+                className="text-slate-600 hover:text-emerald-600 font-medium transition-colors"
+              >
+                {t('nav.contact')}
+              </button>
             </div>
             <div className="flex items-center space-x-3">
               <LanguageSelector />
@@ -45,7 +110,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
       </nav>
 
       <main className="pt-16">
-        <section className="relative overflow-hidden">
+        <section id="hero" className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50"></div>
           <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
           <div className="absolute top-40 right-10 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{animationDelay: '1s'}}></div>
@@ -74,10 +139,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                     {t('app.freeSignup')}
                   </button>
                   <button
-                    onClick={onLogin}
+                    onClick={() => scrollToSection('features')}
                     className="px-8 py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-lg font-semibold hover:border-emerald-300 hover:text-emerald-600 transition-all"
                   >
-                    {t('app.getStarted')}
+                    {t('nav.learnMore')}
                   </button>
                 </div>
                 <div className="mt-8 flex items-center gap-6 text-sm text-slate-500">
@@ -148,7 +213,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           </div>
         </section>
 
-        <section className="py-20 bg-white">
+        <section id="features" className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
@@ -247,7 +312,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
           </div>
         </section>
 
-        <section className="py-20 bg-slate-50" id="pricing">
+        <section id="pricing" className="py-20 bg-slate-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
@@ -258,132 +323,72 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
               </p>
             </div>
             
-            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 hover:shadow-xl transition-all">
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{t('pricing.basicName')}</h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold text-slate-900">$9.99</span>
-                    <span className="text-slate-500">/{t('pricing.month')}</span>
-                  </div>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.basicFeature1')}
-                  </li>
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.basicFeature2')}
-                  </li>
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.basicFeature3')}
-                  </li>
-                </ul>
-                <button
-                  onClick={onRegister}
-                  className="w-full py-3 px-6 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:border-emerald-300 hover:text-emerald-600 transition-all"
-                >
-                  {t('pricing.selectPlan')}
-                </button>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
               </div>
-
-              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-8 shadow-xl relative transform md:-translate-y-4">
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-amber-400 text-amber-900 text-sm font-bold px-4 py-1 rounded-full">
-                    {t('pricing.popular')}
-                  </span>
-                </div>
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-white mb-2">{t('pricing.proName')}</h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold text-white">$29.99</span>
-                    <span className="text-emerald-100">/{t('pricing.month')}</span>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                {pricingTiers.map((tier, index) => (
+                  <div 
+                    key={tier.id}
+                    className={`rounded-2xl p-8 transition-all ${
+                      tier.isPopular 
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl relative transform md:-translate-y-4' 
+                        : 'bg-white border border-slate-200 hover:shadow-xl'
+                    }`}
+                  >
+                    {tier.isPopular && (
+                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span className="bg-amber-400 text-amber-900 text-sm font-bold px-4 py-1 rounded-full">
+                          {t('pricing.popular')}
+                        </span>
+                      </div>
+                    )}
+                    <div className="text-center mb-6">
+                      <h3 className={`text-xl font-bold mb-2 ${tier.isPopular ? 'text-white' : 'text-slate-900'}`}>
+                        {tier.name}
+                      </h3>
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className={`text-4xl font-bold ${tier.isPopular ? 'text-white' : 'text-slate-900'}`}>
+                          {formatPrice(tier.price, tier.currency)}
+                        </span>
+                        <span className={tier.isPopular ? 'text-emerald-100' : 'text-slate-500'}>
+                          /{t('pricing.month')}
+                        </span>
+                      </div>
+                      {tier.patientLimit && (
+                        <p className={`mt-2 text-sm ${tier.isPopular ? 'text-emerald-100' : 'text-slate-500'}`}>
+                          {tier.patientLimit === -1 
+                            ? t('pricing.unlimitedPatients') 
+                            : `${t('pricing.upTo')} ${tier.patientLimit} ${t('pricing.patientsLabel')}`}
+                        </p>
+                      )}
+                    </div>
+                    <ul className="space-y-3 mb-8">
+                      {tier.features.map((feature, featureIndex) => (
+                        <li key={featureIndex} className={`flex items-center gap-3 ${tier.isPopular ? 'text-emerald-50' : 'text-slate-600'}`}>
+                          <svg className={`w-5 h-5 flex-shrink-0 ${tier.isPopular ? 'text-white' : 'text-emerald-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={onRegister}
+                      className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
+                        tier.isPopular
+                          ? 'bg-white text-emerald-600 hover:bg-emerald-50 shadow-lg'
+                          : 'border-2 border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-600'
+                      }`}
+                    >
+                      {t('pricing.selectPlan')}
+                    </button>
                   </div>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-emerald-50">
-                    <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.proFeature1')}
-                  </li>
-                  <li className="flex items-center gap-3 text-emerald-50">
-                    <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.proFeature2')}
-                  </li>
-                  <li className="flex items-center gap-3 text-emerald-50">
-                    <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.proFeature3')}
-                  </li>
-                  <li className="flex items-center gap-3 text-emerald-50">
-                    <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.proFeature4')}
-                  </li>
-                </ul>
-                <button
-                  onClick={onRegister}
-                  className="w-full py-3 px-6 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all shadow-lg"
-                >
-                  {t('pricing.selectPlan')}
-                </button>
+                ))}
               </div>
-
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 hover:shadow-xl transition-all">
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{t('pricing.entName')}</h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold text-slate-900">$99.99</span>
-                    <span className="text-slate-500">/{t('pricing.month')}</span>
-                  </div>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.entFeature1')}
-                  </li>
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.entFeature2')}
-                  </li>
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.entFeature3')}
-                  </li>
-                  <li className="flex items-center gap-3 text-slate-600">
-                    <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('pricing.entFeature4')}
-                  </li>
-                </ul>
-                <button
-                  onClick={onRegister}
-                  className="w-full py-3 px-6 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:border-emerald-300 hover:text-emerald-600 transition-all"
-                >
-                  {t('pricing.selectPlan')}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </section>
 
@@ -417,7 +422,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         </section>
       </main>
 
-      <footer className="bg-slate-900 border-t border-slate-800">
+      <footer id="contact" className="bg-slate-900 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="md:col-span-2">
@@ -436,9 +441,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
             <div>
               <h4 className="text-white font-semibold mb-4">{t('footer.product') || 'Product'}</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-emerald-400 transition-colors">{t('features.digitalChart')}</a></li>
-                <li><a href="#" className="hover:text-emerald-400 transition-colors">{t('features.patientManagement')}</a></li>
-                <li><a href="#" className="hover:text-emerald-400 transition-colors">{t('features.printChart')}</a></li>
+                <li><button onClick={() => scrollToSection('features')} className="hover:text-emerald-400 transition-colors">{t('features.digitalChart')}</button></li>
+                <li><button onClick={() => scrollToSection('features')} className="hover:text-emerald-400 transition-colors">{t('features.patientManagement')}</button></li>
+                <li><button onClick={() => scrollToSection('pricing')} className="hover:text-emerald-400 transition-colors">{t('nav.pricing')}</button></li>
               </ul>
             </div>
             <div>
