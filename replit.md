@@ -55,4 +55,8 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
   - SMS: Configure Twilio account SID, auth token, phone numbers
   - Teams: Configure Incoming Webhook URL
   - Test buttons for email, SMS, and Teams
-- AI API settings (OpenAI API key, model selection, token limits)
+- AI API settings (multi-provider support)
+  - OpenAI: GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo
+  - Google Gemini: Gemini 2.0 Flash, 1.5 Pro, 1.5 Flash, 1.0 Pro
+  - Anthropic Claude: Claude Sonnet 4, 3.5 Sonnet, 3 Opus, 3 Haiku
+  - Per-provider API key configuration with test functionality

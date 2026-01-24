@@ -1,28 +1,55 @@
 import React, { useState, useEffect } from 'react';
 
-interface AIConfig {
+export type AIProvider = 'openai' | 'gemini' | 'claude';
+
+interface ProviderConfig {
   apiKey: string;
   model: string;
-  maxTokens: number;
-  isEnabled: boolean;
 }
 
-const AI_MODELS = [
+interface AIConfig {
+  provider: AIProvider;
+  maxTokens: number;
+  isEnabled: boolean;
+  openai: ProviderConfig;
+  gemini: ProviderConfig;
+  claude: ProviderConfig;
+}
+
+const OPENAI_MODELS = [
   { id: 'gpt-4o', name: 'GPT-4o (추천)' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini (경제적)' },
   { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
   { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
 ];
 
+const GEMINI_MODELS = [
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (추천)' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+  { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro' },
+];
+
+const CLAUDE_MODELS = [
+  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (추천)' },
+  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+  { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
+  { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku (경제적)' },
+];
+
 const AI_CONFIG_KEY = 'ai_config';
 
+const DEFAULT_CONFIG: AIConfig = {
+  provider: 'openai',
+  maxTokens: 1000,
+  isEnabled: false,
+  openai: { apiKey: '', model: 'gpt-4o-mini' },
+  gemini: { apiKey: '', model: 'gemini-2.0-flash' },
+  claude: { apiKey: '', model: 'claude-sonnet-4-20250514' },
+};
+
 export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const [config, setConfig] = useState<AIConfig>({
-    apiKey: '',
-    model: 'gpt-4o-mini',
-    maxTokens: 1000,
-    isEnabled: false,
-  });
+  const [config, setConfig] = useState<AIConfig>(DEFAULT_CONFIG);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -32,12 +59,39 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const savedConfig = localStorage.getItem(AI_CONFIG_KEY);
     if (savedConfig) {
       try {
-        setConfig(JSON.parse(savedConfig));
+        const parsed = JSON.parse(savedConfig);
+        if (parsed.apiKey && !parsed.openai) {
+          setConfig({
+            ...DEFAULT_CONFIG,
+            provider: 'openai',
+            maxTokens: parsed.maxTokens || 1000,
+            isEnabled: parsed.isEnabled || false,
+            openai: { apiKey: parsed.apiKey, model: parsed.model || 'gpt-4o-mini' },
+          });
+        } else {
+          setConfig({ ...DEFAULT_CONFIG, ...parsed });
+        }
       } catch (e) {
         console.error('AI 설정 로드 실패:', e);
       }
     }
   }, []);
+
+  const getCurrentProvider = () => config[config.provider];
+  const getCurrentModels = () => {
+    switch (config.provider) {
+      case 'openai': return OPENAI_MODELS;
+      case 'gemini': return GEMINI_MODELS;
+      case 'claude': return CLAUDE_MODELS;
+    }
+  };
+
+  const updateProviderConfig = (key: keyof ProviderConfig, value: string) => {
+    setConfig({
+      ...config,
+      [config.provider]: { ...config[config.provider], [key]: value },
+    });
+  };
 
   const handleSave = () => {
     setIsSaving(true);
@@ -52,7 +106,8 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   const handleTest = async () => {
-    if (!config.apiKey) {
+    const providerConfig = getCurrentProvider();
+    if (!providerConfig.apiKey) {
       setMessage({ type: 'error', text: 'API 키를 입력해주세요.' });
       return;
     }
@@ -61,24 +116,56 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setMessage({ type: 'info', text: 'API 연결 테스트 중...' });
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: 'Hello' }],
-          max_tokens: 5,
-        }),
-      });
+      let response: Response;
+      
+      if (config.provider === 'openai') {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${providerConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: providerConfig.model,
+            messages: [{ role: 'user', content: 'Hello' }],
+            max_tokens: 5,
+          }),
+        });
+      } else if (config.provider === 'gemini') {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${providerConfig.model}:generateContent?key=${providerConfig.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Hello' }] }],
+              generationConfig: { maxOutputTokens: 5 },
+            }),
+          }
+        );
+      } else {
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': providerConfig.apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: providerConfig.model,
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'Hello' }],
+          }),
+        });
+      }
 
       if (response.ok) {
         setMessage({ type: 'success', text: 'API 연결 테스트 성공! API 키가 유효합니다.' });
       } else {
         const error = await response.json();
-        setMessage({ type: 'error', text: `API 오류: ${error.error?.message || '알 수 없는 오류'}` });
+        const errorMsg = error.error?.message || error.message || '알 수 없는 오류';
+        setMessage({ type: 'error', text: `API 오류: ${errorMsg}` });
       }
     } catch (e) {
       setMessage({ type: 'error', text: 'API 연결 실패. 네트워크를 확인해주세요.' });
@@ -90,13 +177,24 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const handleDelete = () => {
     if (confirm('AI API 설정을 삭제하시겠습니까?')) {
       localStorage.removeItem(AI_CONFIG_KEY);
-      setConfig({
-        apiKey: '',
-        model: 'gpt-4o-mini',
-        maxTokens: 1000,
-        isEnabled: false,
-      });
+      setConfig(DEFAULT_CONFIG);
       setMessage({ type: 'success', text: 'AI 설정이 삭제되었습니다.' });
+    }
+  };
+
+  const getProviderName = (provider: AIProvider) => {
+    switch (provider) {
+      case 'openai': return 'OpenAI';
+      case 'gemini': return 'Google Gemini';
+      case 'claude': return 'Anthropic Claude';
+    }
+  };
+
+  const getProviderLink = (provider: AIProvider) => {
+    switch (provider) {
+      case 'openai': return 'https://platform.openai.com/api-keys';
+      case 'gemini': return 'https://aistudio.google.com/apikey';
+      case 'claude': return 'https://console.anthropic.com/settings/keys';
     }
   };
 
@@ -142,15 +240,34 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">AI 제공자 선택</label>
+              <div className="flex gap-2">
+                {(['openai', 'gemini', 'claude'] as AIProvider[]).map((provider) => (
+                  <button
+                    key={provider}
+                    onClick={() => setConfig({ ...config, provider })}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      config.provider === provider
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {getProviderName(provider)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                OpenAI API 키
+                {getProviderName(config.provider)} API 키
               </label>
               <div className="relative">
                 <input
                   type={showApiKey ? 'text' : 'password'}
-                  value={config.apiKey}
-                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                  placeholder="sk-..."
+                  value={getCurrentProvider().apiKey}
+                  onChange={(e) => updateProviderConfig('apiKey', e.target.value)}
+                  placeholder={config.provider === 'openai' ? 'sk-...' : config.provider === 'gemini' ? 'AIza...' : 'sk-ant-...'}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-20"
                 />
                 <button
@@ -162,9 +279,9 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                OpenAI에서 발급받은 API 키를 입력하세요. 
+                {getProviderName(config.provider)}에서 발급받은 API 키를 입력하세요.
                 <a 
-                  href="https://platform.openai.com/api-keys" 
+                  href={getProviderLink(config.provider)}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:underline ml-1"
@@ -179,11 +296,11 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 AI 모델
               </label>
               <select
-                value={config.model}
-                onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                value={getCurrentProvider().model}
+                onChange={(e) => updateProviderConfig('model', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {AI_MODELS.map((model) => (
+                {getCurrentModels().map((model) => (
                   <option key={model.id} value={model.id}>
                     {model.name}
                   </option>
@@ -212,7 +329,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <h4 className="font-medium text-yellow-800 mb-2">주의사항</h4>
               <ul className="text-sm text-yellow-700 space-y-1">
                 <li>• API 키는 브라우저에 안전하게 저장됩니다</li>
-                <li>• API 사용량에 따라 OpenAI 요금이 부과됩니다</li>
+                <li>• API 사용량에 따라 {getProviderName(config.provider)} 요금이 부과됩니다</li>
                 <li>• 환자 정보가 AI에 전송될 수 있으니 개인정보 보호에 유의하세요</li>
               </ul>
             </div>
@@ -228,7 +345,7 @@ export const AISettings: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div className="flex gap-3">
               <button
                 onClick={handleTest}
-                disabled={isTesting || !config.apiKey}
+                disabled={isTesting || !getCurrentProvider().apiKey}
                 className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isTesting ? '테스트 중...' : '연결 테스트'}
@@ -252,10 +369,35 @@ export const getAIConfig = (): AIConfig | null => {
   const saved = localStorage.getItem(AI_CONFIG_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (parsed.apiKey && !parsed.openai) {
+        return {
+          ...DEFAULT_CONFIG,
+          provider: 'openai',
+          maxTokens: parsed.maxTokens || 1000,
+          isEnabled: parsed.isEnabled || false,
+          openai: { apiKey: parsed.apiKey, model: parsed.model || 'gpt-4o-mini' },
+        };
+      }
+      return { ...DEFAULT_CONFIG, ...parsed };
     } catch {
       return null;
     }
   }
   return null;
+};
+
+export const getCurrentAIProvider = (): { provider: AIProvider; apiKey: string; model: string; maxTokens: number } | null => {
+  const config = getAIConfig();
+  if (!config || !config.isEnabled) return null;
+  
+  const providerConfig = config[config.provider];
+  if (!providerConfig.apiKey) return null;
+  
+  return {
+    provider: config.provider,
+    apiKey: providerConfig.apiKey,
+    model: providerConfig.model,
+    maxTokens: config.maxTokens,
+  };
 };
