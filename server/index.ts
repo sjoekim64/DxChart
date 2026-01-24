@@ -450,9 +450,11 @@ async function startServer() {
   app.use(express.static(distPath));
   
   // Handle client-side routing - serve index.html for all non-API routes
-  app.get("*", (req, res) => {
-    if (!req.path.startsWith("/api")) {
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api") && req.method === "GET") {
       res.sendFile(path.join(distPath, "index.html"));
+    } else {
+      next();
     }
   });
 
