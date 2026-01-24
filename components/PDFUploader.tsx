@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import OpenAI from 'openai';
 import type { PatientData } from '../types.ts';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface PDFUploaderProps {
   onExtractComplete: (patientData: PatientData) => void;
@@ -14,6 +15,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onExtractComplete, onC
   const [retryCount, setRetryCount] = useState(0);
   const [lastPdfText, setLastPdfText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   // PDF.js를 동적으로 로드
   const loadPDFJS = async () => {
@@ -340,7 +342,7 @@ ${pdfText}
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">PDF에서 환자 정보 불러오기</h3>
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">{t('pdf.importTitle')}</h3>
         
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -351,7 +353,7 @@ ${pdfText}
                 disabled={isProcessing}
                 className="text-sm underline hover:no-underline disabled:opacity-50"
               >
-                다시 시도
+                {t('pdf.retry')}
               </button>
             )}
           </div>
@@ -359,7 +361,7 @@ ${pdfText}
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            PDF 파일 선택
+            {t('pdf.selectFile')}
           </label>
           <input
             ref={fileInputRef}
@@ -374,7 +376,7 @@ ${pdfText}
         {isProcessing && (
           <div className="mb-4 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-2 text-sm text-gray-600">PDF를 처리하는 중...</p>
+            <p className="mt-2 text-sm text-gray-600">{t('pdf.processing')}</p>
           </div>
         )}
 
@@ -384,7 +386,7 @@ ${pdfText}
             disabled={isProcessing}
             className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50"
           >
-            취소
+            {t('pdf.cancel')}
           </button>
         </div>
       </div>

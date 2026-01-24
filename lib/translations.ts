@@ -293,6 +293,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.cancel': 'Cancel',
     'patientList.view': 'View',
     
+    // PDF Uploader
+    'pdf.importTitle': 'Import Patient Data from PDF',
+    'pdf.selectFile': 'Select PDF File',
+    'pdf.processing': 'Processing PDF...',
+    'pdf.retry': 'Retry',
+    'pdf.cancel': 'Cancel',
+    
     // Auth Additional
     'auth.forgotPassword': 'Forgot password?',
     'auth.resetPassword': 'Reset Password',
@@ -618,6 +625,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.selectExistingPatient': '기존 환자 선택',
     'patientList.cancel': '취소',
     'patientList.view': '보기',
+    
+    // PDF Uploader
+    'pdf.importTitle': 'PDF에서 환자 정보 불러오기',
+    'pdf.selectFile': 'PDF 파일 선택',
+    'pdf.processing': 'PDF를 처리하는 중...',
+    'pdf.retry': '다시 시도',
+    'pdf.cancel': '취소',
     
     // Auth Additional
     'auth.forgotPassword': '비밀번호를 잊으셨나요?',
@@ -945,6 +959,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.cancel': '取消',
     'patientList.view': '查看',
     
+    // PDF Uploader
+    'pdf.importTitle': '從PDF匯入患者資料',
+    'pdf.selectFile': '選擇PDF檔案',
+    'pdf.processing': '正在處理PDF...',
+    'pdf.retry': '重試',
+    'pdf.cancel': '取消',
+    
     // Auth Additional
     'auth.forgotPassword': '忘記密碼？',
     'auth.resetPassword': '重設密碼',
@@ -1270,6 +1291,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.selectExistingPatient': '选择现有患者',
     'patientList.cancel': '取消',
     'patientList.view': '查看',
+    
+    // PDF Uploader
+    'pdf.importTitle': '从PDF导入患者数据',
+    'pdf.selectFile': '选择PDF文件',
+    'pdf.processing': '正在处理PDF...',
+    'pdf.retry': '重试',
+    'pdf.cancel': '取消',
     
     // Auth Additional
     'auth.forgotPassword': '忘记密码？',
@@ -1597,6 +1625,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.cancel': 'キャンセル',
     'patientList.view': '表示',
     
+    // PDF Uploader
+    'pdf.importTitle': 'PDFから患者情報をインポート',
+    'pdf.selectFile': 'PDFファイルを選択',
+    'pdf.processing': 'PDFを処理中...',
+    'pdf.retry': '再試行',
+    'pdf.cancel': 'キャンセル',
+    
     // Auth Additional
     'auth.forgotPassword': 'パスワードをお忘れですか？',
     'auth.resetPassword': 'パスワードをリセット',
@@ -1922,6 +1957,13 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'patientList.selectExistingPatient': 'Seleccionar Paciente Existente',
     'patientList.cancel': 'Cancelar',
     'patientList.view': 'Ver',
+    
+    // PDF Uploader
+    'pdf.importTitle': 'Importar Datos del Paciente desde PDF',
+    'pdf.selectFile': 'Seleccionar Archivo PDF',
+    'pdf.processing': 'Procesando PDF...',
+    'pdf.retry': 'Reintentar',
+    'pdf.cancel': 'Cancelar',
     
     // Auth Additional
     'auth.forgotPassword': '¿Olvidó su contraseña?',
