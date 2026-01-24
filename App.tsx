@@ -172,7 +172,6 @@ const PatientChartApp: React.FC = () => {
     if (isAuthenticated && user) {
       // 일반 사용자인 경우 admin 모드 강제 해제
       if (user.id !== 'admin' && user.username !== 'admin' && isAdminMode) {
-        console.log('🔒 일반 사용자 로그인 - admin 모드 강제 해제');
         clearAdminMode();
       }
       loadUserData();

@@ -304,22 +304,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // 앱 시작 시 토큰 검증 및 테스트 사용자 초기화
   useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    
+    // 토큰이 없으면 바로 로그인 화면 표시 (초기화 기다리지 않음)
+    if (!token) {
+      dispatch({ type: 'VERIFY_FAILURE' });
+      
+      // 백그라운드에서 데이터베이스 초기화 (로그인 준비)
+      const initializeBackground = async () => {
+        try {
+          await database.initialize();
+          const { initializeTestUser } = await import('../lib/sampleData');
+          await initializeTestUser();
+        } catch (error) {
+          console.error('Database initialization failed:', error);
+        }
+      };
+      initializeBackground();
+      return;
+    }
+    
+    // 토큰이 있으면 검증
     const initialize = async () => {
-      // 데이터베이스 초기화 및 테스트 사용자 생성 (로그인 전에 실행)
       try {
         await database.initialize();
-        const { initializeTestUser } = await import('../lib/sampleData');
-        await initializeTestUser();
       } catch (error) {
-        console.error('❌ 앱 초기화 실패:', error);
+        console.error('Database initialization failed:', error);
       }
-      
-      // 토큰 검증
-      if (state.token) {
-        verifyToken();
-      } else {
-        dispatch({ type: 'VERIFY_FAILURE' });
-      }
+      verifyToken();
     };
     
     initialize();
