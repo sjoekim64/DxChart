@@ -1,13 +1,55 @@
 import emailjs from '@emailjs/browser';
 
-// EmailJS 설정 (환경 변수에서 가져오기)
-// Vite에서는 VITE_ 접두사가 있는 환경 변수만 클라이언트에 노출됩니다
-const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_l4jlrhr';
-const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_g0mc9fr';
-const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'rA7woIdCuPRzaiuAF';
+interface NotificationConfig {
+  email: string;
+  phoneNumber: string;
+  enableEmailNotifications: boolean;
+  enableSMSNotifications: boolean;
+  emailjs: {
+    serviceId: string;
+    templateId: string;
+    publicKey: string;
+  };
+  twilio: {
+    accountSid: string;
+    authToken: string;
+    fromNumber: string;
+  };
+}
 
-// EmailJS 초기화
-emailjs.init(EMAILJS_PUBLIC_KEY);
+const getNotificationConfig = (): NotificationConfig => {
+  const saved = localStorage.getItem('notificationConfig');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      // fallback to defaults
+    }
+  }
+  return {
+    email: '',
+    phoneNumber: '',
+    enableEmailNotifications: true,
+    enableSMSNotifications: false,
+    emailjs: {
+      serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_l4jlrhr',
+      templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_g0mc9fr',
+      publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'rA7woIdCuPRzaiuAF',
+    },
+    twilio: {
+      accountSid: '',
+      authToken: '',
+      fromNumber: '',
+    },
+  };
+};
+
+const initEmailJS = () => {
+  const config = getNotificationConfig();
+  if (config.emailjs.publicKey) {
+    emailjs.init(config.emailjs.publicKey);
+  }
+};
 
 export interface LoginNotificationData {
   username: string;
@@ -30,18 +72,23 @@ export interface RegistrationNotificationData {
 
 export const sendLoginNotification = async (data: LoginNotificationData): Promise<boolean> => {
   try {
+    const config = getNotificationConfig();
+    
+    if (!config.enableEmailNotifications) {
+      console.log('📧 이메일 알림이 비활성화되어 있습니다.');
+      return false;
+    }
+    
     console.log('🚀 로그인 알림 이메일 발송 시작');
-    console.log('=== EmailJS 설정 확인 ===');
-    console.log('EMAILJS_SERVICE_ID:', EMAILJS_SERVICE_ID);
-    console.log('EMAILJS_TEMPLATE_ID:', EMAILJS_TEMPLATE_ID);
-    console.log('EMAILJS_PUBLIC_KEY:', EMAILJS_PUBLIC_KEY ? '설정됨' : '설정되지 않음');
-    console.log('========================');
-    console.log('📧 전송할 데이터:', data);
+    
+    initEmailJS();
+    
+    const recipientEmail = config.email || 'stjoe1004@gmail.com';
     
     const templateParams = {
       subject: `[환자차트시스템] ${data.username} 로그인 알림`,
       name: data.therapistName,
-      email: 'stjoe1004@gmail.com',
+      email: recipientEmail,
       time: data.loginTime,
       message: `
 새로운 로그인이 감지되었습니다.
@@ -53,23 +100,17 @@ export const sendLoginNotification = async (data: LoginNotificationData): Promis
 - 로그인 시간: ${data.loginTime}
 - IP 주소: ${data.ipAddress || '알 수 없음'}
 - 브라우저: ${data.userAgent}
-
-로그인이 감지되었습니다.
       `.trim()
     };
 
-    // EmailJS 설정이 제대로 되지 않은 경우 경고
-    if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY === 'your_emailjs_public_key') {
-      console.warn('⚠️ EmailJS가 설정되지 않았습니다. .env.local 파일에 EMAILJS_PUBLIC_KEY를 설정해주세요.');
-      console.log('📧 로그인 알림 데이터:', data);
+    if (!config.emailjs.publicKey) {
+      console.warn('⚠️ EmailJS가 설정되지 않았습니다.');
       return false;
     }
-
-    console.log('📧 전송할 템플릿 파라미터:', templateParams);
     
     const response = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
+      config.emailjs.serviceId,
+      config.emailjs.templateId,
       templateParams
     );
 
@@ -77,12 +118,6 @@ export const sendLoginNotification = async (data: LoginNotificationData): Promis
     return true;
   } catch (error) {
     console.error('❌ 로그인 알림 이메일 발송 실패:', error);
-    console.error('오류 상세:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      status: (error as any)?.status,
-      text: (error as any)?.text,
-      response: (error as any)?.response
-    });
     return false;
   }
 };
@@ -99,16 +134,25 @@ export const getClientIP = async (): Promise<string> => {
   }
 };
 
-// 회원가입 알림 이메일 발송
 export const sendRegistrationNotification = async (data: RegistrationNotificationData): Promise<boolean> => {
   try {
+    const config = getNotificationConfig();
+    
+    if (!config.enableEmailNotifications) {
+      console.log('📧 이메일 알림이 비활성화되어 있습니다.');
+      return false;
+    }
+    
     console.log('🚀 회원가입 알림 이메일 발송 시작');
-    console.log('📧 전송할 데이터:', data);
+    
+    initEmailJS();
+    
+    const recipientEmail = config.email || 'stjoe1004@gmail.com';
     
     const templateParams = {
       subject: `[환자차트시스템] 새로운 회원가입 요청 - ${data.username}`,
       name: '관리자',
-      email: 'stjoe1004@gmail.com',
+      email: recipientEmail,
       time: data.registrationTime,
       message: `
 새로운 회원가입 요청이 접수되었습니다.
@@ -126,19 +170,14 @@ export const sendRegistrationNotification = async (data: RegistrationNotificatio
       `.trim()
     };
 
-    // EmailJS 설정이 제대로 되지 않은 경우 경고
-    if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY === 'your_emailjs_public_key') {
-      console.warn('⚠️ EmailJS가 설정되지 않았습니다. .env.local 파일에 EMAILJS_PUBLIC_KEY를 설정해주세요.');
-      console.log('📧 회원가입 알림 데이터:', data);
-      // 이메일 발송 실패해도 회원가입은 성공으로 처리
+    if (!config.emailjs.publicKey) {
+      console.warn('⚠️ EmailJS가 설정되지 않았습니다.');
       return false;
     }
-
-    console.log('📧 전송할 템플릿 파라미터:', templateParams);
     
     const response = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
+      config.emailjs.serviceId,
+      config.emailjs.templateId,
       templateParams
     );
 
@@ -146,12 +185,6 @@ export const sendRegistrationNotification = async (data: RegistrationNotificatio
     return true;
   } catch (error) {
     console.error('❌ 회원가입 알림 이메일 발송 실패:', error);
-    console.error('오류 상세:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      status: (error as any)?.status,
-      text: (error as any)?.text,
-      response: (error as any)?.response
-    });
     return false;
   }
 };
@@ -161,23 +194,48 @@ export const getBrowserInfo = (): string => {
   return navigator.userAgent;
 };
 
-// SMS 알림 발송 (Twilio 사용)
-export const sendSMSNotification = async (message: string, phoneNumber: string): Promise<boolean> => {
+export const sendSMSNotification = async (message: string, phoneNumber?: string): Promise<boolean> => {
   try {
-    console.log('📱 SMS 알림 발송 시작:', { message, phoneNumber });
+    const config = getNotificationConfig();
     
-    // Twilio API 호출 (서버 사이드에서 처리해야 함)
-    // 현재는 클라이언트 사이드이므로 실제 SMS 발송은 서버에서 처리
-    console.log('📱 SMS 알림 데이터:', { message, phoneNumber });
+    if (!config.enableSMSNotifications) {
+      console.log('📱 SMS 알림이 비활성화되어 있습니다.');
+      return false;
+    }
     
-    // 실제 구현 시에는 서버 API를 호출하여 SMS 발송
-    // fetch('/api/send-sms', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ message, phoneNumber })
-    // });
+    const toNumber = phoneNumber || config.phoneNumber;
     
-    return true;
+    if (!toNumber || !config.twilio.accountSid || !config.twilio.authToken || !config.twilio.fromNumber) {
+      console.warn('⚠️ Twilio 설정이 완료되지 않았습니다.');
+      return false;
+    }
+    
+    console.log('📱 SMS 알림 발송 시작:', { message, toNumber });
+    
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + btoa(`${config.twilio.accountSid}:${config.twilio.authToken}`),
+        },
+        body: new URLSearchParams({
+          To: toNumber,
+          From: config.twilio.fromNumber,
+          Body: message,
+        }),
+      }
+    );
+
+    if (response.ok) {
+      console.log('✅ SMS 알림 발송 성공');
+      return true;
+    } else {
+      const error = await response.json();
+      console.error('❌ SMS 발송 실패:', error);
+      return false;
+    }
   } catch (error) {
     console.error('❌ SMS 알림 발송 실패:', error);
     return false;

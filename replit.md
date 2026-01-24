@@ -41,6 +41,7 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Static deployment configured with build output in `dist/` folder
 
 ## Recent Changes (2026-01-24)
+- Enhanced notification settings with EmailJS and Twilio configuration
 - Added AI API settings management in admin dashboard
 - Added landing page with service introduction
 - Improved authentication flow with back-to-landing navigation
@@ -49,5 +50,8 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 
 ## Admin Features
 - User management (approve/reject/delete)
-- Notification settings
+- Notification settings (EmailJS for email, Twilio for SMS)
+  - Email: Configure EmailJS service ID, template ID, public key
+  - SMS: Configure Twilio account SID, auth token, phone numbers
+  - Test buttons for both email and SMS
 - AI API settings (OpenAI API key, model selection, token limits)
