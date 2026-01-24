@@ -3,8 +3,13 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { WaitingForApproval } from './WaitingForApproval';
 
-export const AuthWrapper: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+interface AuthWrapperProps {
+  initialMode?: 'login' | 'register';
+  onBackToLanding?: () => void;
+}
+
+export const AuthWrapper: React.FC<AuthWrapperProps> = ({ initialMode = 'login', onBackToLanding }) => {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [showWaiting, setShowWaiting] = useState(false);
 
   if (showWaiting) {
@@ -12,18 +17,28 @@ export const AuthWrapper: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="relative">
+      {onBackToLanding && (
+        <button
+          onClick={onBackToLanding}
+          className="absolute top-4 left-4 text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          홈으로
+        </button>
+      )}
       {isLogin ? (
         <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
       ) : (
         <RegisterForm 
           onSwitchToLogin={() => setIsLogin(true)}
           onRegistrationSuccess={() => {
-            // 회원가입 성공 시 승인 대기 화면으로 이동
             setShowWaiting(true);
           }}
         />
       )}
-    </>
+    </div>
   );
 };

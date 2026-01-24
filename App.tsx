@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AuthWrapper } from './components/AuthWrapper';
+import { LandingPage } from './components/LandingPage';
 import { PatientForm } from './components/PatientForm';
 import { PrintableView } from './components/PrintableView';
 import { PatientList } from './components/PatientList';
@@ -161,6 +162,8 @@ const PatientChartApp: React.FC = () => {
   const [clinicInfo, setClinicInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPDFUploader, setShowPDFUploader] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const { isAdminMode, clearAdminMode } = useAdminMode();
@@ -645,7 +648,26 @@ const PatientChartApp: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <AuthWrapper />;
+    if (showLanding) {
+      return (
+        <LandingPage 
+          onLogin={() => {
+            setAuthMode('login');
+            setShowLanding(false);
+          }}
+          onRegister={() => {
+            setAuthMode('register');
+            setShowLanding(false);
+          }}
+        />
+      );
+    }
+    return (
+      <AuthWrapper 
+        initialMode={authMode} 
+        onBackToLanding={() => setShowLanding(true)} 
+      />
+    );
   }
 
   // 관리자 대시보드 모드 (admin 사용자만)
