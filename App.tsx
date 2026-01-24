@@ -174,7 +174,7 @@ const PatientChartApp: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       // 일반 사용자인 경우 admin 모드 강제 해제
-      if (user.id !== 'admin' && user.username !== 'admin' && isAdminMode) {
+      if (user.username !== 'admin' && isAdminMode) {
         clearAdminMode();
       }
       loadUserData();
@@ -671,12 +671,12 @@ const PatientChartApp: React.FC = () => {
   }
 
   // 관리자 대시보드 모드 (admin 사용자만)
-  if (isAuthenticated && isAdminMode && user && user.id === 'admin' && user.username === 'admin') {
+  if (isAuthenticated && isAdminMode && user && user.username === 'admin') {
     return <AdminRoute isAuthenticated={isAuthenticated} isAdminMode={isAdminMode} />;
   }
   
   // 일반 사용자인데 admin 모드가 활성화되어 있으면 강제 해제
-  if (isAuthenticated && user && user.id !== 'admin' && user.username !== 'admin' && isAdminMode) {
+  if (isAuthenticated && user && user.username !== 'admin' && isAdminMode) {
     clearAdminMode();
   }
 

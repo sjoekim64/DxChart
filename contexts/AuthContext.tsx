@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Admin 계정 특별 처리 (데이터베이스 체크 우회)
       const isAdminAccount = credentials.username.toLowerCase() === 'admin' && 
-                            credentials.password === 'joe007007';
+                            credentials.password === 'admin1234';
       
       if (isAdminAccount) {
         console.log('🔐 Admin 계정으로 로그인 - 관리자 대시보드로 이동');
@@ -314,8 +314,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const initializeBackground = async () => {
         try {
           await database.initialize();
-          const { initializeTestUser } = await import('../lib/sampleData');
+          const { initializeTestUser, initializeAdminUser } = await import('../lib/sampleData');
           await initializeTestUser();
+          await initializeAdminUser();
         } catch (error) {
           console.error('Database initialization failed:', error);
         }

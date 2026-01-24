@@ -365,3 +365,46 @@ export const initializeTestUser = async () => {
     return { userCreated: false, userApproved: false };
   }
 };
+
+// 관리자 계정 초기화 함수
+export const initializeAdminUser = async () => {
+  const { database } = await import('./database');
+  
+  try {
+    await database.initialize();
+    
+    const adminUserData = {
+      username: 'admin',
+      password: 'admin1234',
+      clinicName: 'System Administrator',
+      therapistName: 'Administrator',
+      therapistLicenseNo: 'ADMIN'
+    };
+    
+    const existingUsers = await database.getAllUsers();
+    const existingAdmin = existingUsers.find(user => user.username === 'admin');
+    
+    if (!existingAdmin) {
+      console.log('🔧 관리자 계정 생성 중...');
+      const result = await database.registerUser(adminUserData);
+      
+      await database.approveUser(result.user.id, 'system');
+      console.log('✅ 관리자 계정이 생성되었습니다.');
+      
+      return { adminCreated: true, adminApproved: true };
+    } else {
+      console.log('ℹ️ 관리자 계정이 이미 존재합니다.');
+      
+      if (!existingAdmin.isApproved) {
+        await database.approveUser(existingAdmin.id, 'system');
+        console.log('✅ 관리자 계정이 승인되었습니다.');
+        return { adminCreated: false, adminApproved: true };
+      }
+      
+      return { adminCreated: false, adminApproved: existingAdmin.isApproved };
+    }
+  } catch (error) {
+    console.error('❌ 관리자 계정 초기화 실패:', error);
+    return { adminCreated: false, adminApproved: false };
+  }
+};
