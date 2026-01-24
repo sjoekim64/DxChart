@@ -16,10 +16,15 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
   - `AuthWrapper.tsx` - Login/Register form wrapper
   - `AdminDashboard.tsx` - Admin user management page
   - `PatientForm.tsx` - Patient chart form
-  - `PatientList.tsx` - Patient list view
-- `/contexts` - React context providers (AuthContext)
+  - `PatientList.tsx` - Patient list view with subscription status
+  - `PricingSettings.tsx` - Admin pricing tier configuration
+  - `PricingPage.tsx` - User-facing pricing plans page
+- `/contexts` - React context providers
+  - `AuthContext.tsx` - User authentication
+  - `LanguageContext.tsx` - Internationalization
+  - `SubscriptionContext.tsx` - Subscription management and feature gating
 - `/hooks` - Custom React hooks (useAdminMode)
-- `/lib` - Utility libraries (database, sampleData)
+- `/lib` - Utility libraries (database, sampleData, translations)
 - `/types` - TypeScript type definitions
 - `/public` - Static assets
 
@@ -41,19 +46,24 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
 - Static deployment configured with build output in `dist/` folder
 
 ## Recent Changes (2026-01-24)
+- **Stripe Payment Integration with Tiered Pricing**
+  - 3 configurable pricing tiers: Basic, Professional, Enterprise
+  - Admin-configurable pricing in Admin Dashboard (name, price, currency, features)
+  - Stripe Price ID support for production payment processing
+  - Demo mode for testing without actual Stripe checkout
+  - Feature gating based on subscription tier
+  - Patient limits: Free=10, Basic=50, Professional=500, Enterprise=unlimited
+  - AI access restricted to Professional and Enterprise tiers
+  - Subscription status stored per-user in localStorage
+  - PricingPage accessible from PatientList with "View Plans" button
+  - Visual warnings when approaching or exceeding patient limits
 - **Full Internationalization (i18n) Support**
   - 6 languages: English (default), Korean (한국어), Traditional Chinese (中文繁體), Simplified Chinese (中文简体), Japanese (日本語), Spanish (Español)
-  - LanguageContext and LanguageSelector components for language switching
-  - Language preference saved to localStorage (key: 'app_language')
-  - All major components translated: LandingPage, AuthWrapper, LoginForm, RegisterForm, AdminDashboard, NotificationSettings, AISettings
-  - Test message content (email, SMS, Teams) fully localized in all languages
-  - Semantic translation key organization: auth.*, admin.*, notification.*, ai.*, common.*
+  - All pricing-related strings localized across all 6 languages
+  - Semantic translation key organization: auth.*, admin.*, notification.*, ai.*, pricing.*, common.*
 - Enhanced notification settings with EmailJS and Twilio configuration
 - Added AI API settings management in admin dashboard
 - Added landing page with service introduction
-- Improved authentication flow with back-to-landing navigation
-- Fixed Vite host blocking issue with array syntax for allowedHosts
-- Optimized auth loading state for faster initial load
 
 ## Internationalization (i18n)
 - Translation file: `/lib/translations.ts`
@@ -76,3 +86,17 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
   - Google Gemini: Gemini 2.0 Flash, 1.5 Pro, 1.5 Flash, 1.0 Pro
   - Anthropic Claude: Claude Sonnet 4, 3.5 Sonnet, 3 Opus, 3 Haiku
   - Per-provider API key configuration with test functionality
+- Pricing settings (Stripe integration)
+  - 3 configurable pricing tiers with customizable names, prices, currencies
+  - Feature list per tier (editable)
+  - Stripe Price ID field for production payment processing
+  - Mark tier as "popular" option
+  - Demo mode: subscriptions work without actual Stripe checkout
+
+## Subscription System
+- Context: `/contexts/SubscriptionContext.tsx`
+- Feature gating: `useSubscription().canAccess('feature_name')`
+- Patient limits: `useSubscription().canAddPatient(currentCount)`
+- AI access check: `useSubscription().hasAIAccess()`
+- Subscription tiers: free, basic, professional, enterprise
+- Storage: `localStorage` with key `subscription_{userId}`

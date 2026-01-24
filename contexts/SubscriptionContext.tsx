@@ -16,6 +16,8 @@ interface SubscriptionContextType {
   canAccess: (feature: string) => boolean;
   setSubscription: (info: SubscriptionInfo) => void;
   getMaxPatients: () => number;
+  getPatientLimit: () => number;
+  canAddPatient: (currentCount: number) => boolean;
   hasAIAccess: () => boolean;
   hasUnlimitedCharts: () => boolean;
 }
@@ -101,6 +103,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     return canAccess('unlimited_charts');
   };
 
+  const getPatientLimit = (): number => {
+    return patientLimits[subscription.tier];
+  };
+
+  const canAddPatient = (currentCount: number): boolean => {
+    const limit = patientLimits[subscription.tier];
+    return limit === Infinity || currentCount < limit;
+  };
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -109,6 +120,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         canAccess,
         setSubscription,
         getMaxPatients,
+        getPatientLimit,
+        canAddPatient,
         hasAIAccess,
         hasUnlimitedCharts,
       }}

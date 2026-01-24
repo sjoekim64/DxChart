@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import type { PatientData } from '../types.ts';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface PatientListProps {
   patients: PatientData[];
@@ -13,13 +15,16 @@ interface PatientListProps {
   onClearSampleData?: () => void;
   onViewPatient?: (patient: PatientData) => void;
   onImportPDF?: () => void;
+  onViewPricing?: () => void;
 }
 
-export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromScratch, onStartFollowUpFromPDF, onDeletePatient, onClearSampleData, onViewPatient, onImportPDF }) => {
+export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPatient, onNewPatient, onStartFollowUp, onStartFollowUpFromScratch, onStartFollowUpFromPDF, onDeletePatient, onClearSampleData, onViewPatient, onImportPDF, onViewPricing }) => {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const patientsPerPage = 15;
+  const { subscription, canAddPatient, getPatientLimit } = useSubscription();
+  const { t } = useLanguage();
 
   const formatName = (name: string) => {
     const parts = name?.trim().split(/\s+/).filter(Boolean) || [];
@@ -83,14 +88,68 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
   const startIndex = (safeCurrentPage - 1) * patientsPerPage;
   const paginatedPatients = filteredPatients.slice(startIndex, startIndex + patientsPerPage);
 
+  const patientLimit = getPatientLimit();
+  const uniquePatients = new Set(patients.map(p => p.fileNo)).size;
+  const canAdd = canAddPatient(uniquePatients);
+  const limitWarning = !canAdd || (patientLimit !== Infinity && uniquePatients >= patientLimit * 0.8);
+
+  const handleNewPatientWithCheck = () => {
+    if (!canAdd) {
+      alert(t('pricing.limitReached') || 'You have reached your patient limit. Please upgrade your plan.');
+      if (onViewPricing) onViewPricing();
+      return;
+    }
+    onNewPatient();
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl mx-auto">
+      {limitWarning && (
+        <div className={`mb-4 p-3 rounded-lg ${canAdd ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'}`}>
+          <div className="flex items-center justify-between">
+            <span className={canAdd ? 'text-yellow-800' : 'text-red-800'}>
+              {canAdd 
+                ? `${t('pricing.nearLimit') || 'Approaching patient limit'}: ${uniquePatients}/${patientLimit === Infinity ? '∞' : patientLimit}`
+                : `${t('pricing.limitReached') || 'Patient limit reached'}: ${uniquePatients}/${patientLimit}`}
+            </span>
+            {onViewPricing && (
+              <button
+                onClick={onViewPricing}
+                className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+              >
+                {t('pricing.upgrade') || 'Upgrade Plan'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      
       <div className="border-b pb-4 mb-6 text-center">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Patient Management</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold text-gray-800">Patient Management</h2>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 text-sm bg-gray-100 rounded-full">
+              {subscription.tier.toUpperCase()} Plan
+            </span>
+            {onViewPricing && (
+              <button
+                onClick={onViewPricing}
+                className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200"
+              >
+                {t('pricing.viewPlans') || 'View Plans'}
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex justify-center space-x-4 flex-wrap gap-2">
           <button
-            onClick={onNewPatient}
-            className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+            onClick={handleNewPatientWithCheck}
+            disabled={!canAdd}
+            className={`px-6 py-3 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ${
+              canAdd 
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500' 
+                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            }`}
           >
             Register New Patient
           </button>

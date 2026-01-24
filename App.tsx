@@ -160,7 +160,7 @@ const getNewPatientState = (chartType: 'new' | 'follow-up', clinicInfo?: any): P
 const PatientChartApp: React.FC = () => {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [currentPatient, setCurrentPatient] = useState<PatientData | null>(null);
-  const [view, setView] = useState<'list' | 'form' | 'print' | 'profile'>('list');
+  const [view, setView] = useState<'list' | 'form' | 'print' | 'profile' | 'pricing'>('list');
   const [formMode, setFormMode] = useState<'new' | 'edit'>('new');
   const [clinicInfo, setClinicInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -621,6 +621,8 @@ const PatientChartApp: React.FC = () => {
         return <PrintableView data={currentPatient!} onEdit={handleEdit} onGoToList={handleGoToList} />;
       case 'profile':
         return <ProfileManagement onBack={handleGoToList} onUpdate={handleProfileUpdate} />;
+      case 'pricing':
+        return <PricingPage onBack={handleGoToList} />;
       case 'list':
       default:
         return <PatientList 
@@ -634,6 +636,7 @@ const PatientChartApp: React.FC = () => {
                     onClearSampleData={clearSampleData}
                     onViewPatient={handleViewPatient}
                     onImportPDF={() => setShowPDFUploader(true)}
+                    onViewPricing={() => setView('pricing')}
                 />;
     }
   };
