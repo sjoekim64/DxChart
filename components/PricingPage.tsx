@@ -100,7 +100,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onBack }) => {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">{t('pricing.pageTitle')}</h1>
           <p className="text-xl text-gray-600">{t('pricing.pageSubtitle')}</p>
           {subscription.tier !== 'free' && (
-            <div className="mt-4 inline-block px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full">
+            <div className="mt-4 inline-block px-4 py-2 bg-emerald-100 text-emerald-800 rounded-full">
               {t('pricing.currentPlan')}: <strong>{subscription.tier.toUpperCase()}</strong>
             </div>
           )}
@@ -121,11 +121,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onBack }) => {
             <div
               key={tier.id}
               className={`bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 ${
-                tier.isPopular ? 'ring-2 ring-indigo-500 relative' : ''
+                tier.isPopular ? 'ring-2 ring-emerald-500 relative' : ''
               }`}
             >
               {tier.isPopular && (
-                <div className="absolute top-0 left-0 right-0 bg-indigo-500 text-white text-center py-1 text-sm font-medium">
+                <div className="absolute top-0 left-0 right-0 bg-emerald-500 text-white text-center py-1 text-sm font-medium">
                   {t('pricing.mostPopular')}
                 </div>
               )}
@@ -159,7 +159,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onBack }) => {
                     subscription.tier === tier.id
                       ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                       : tier.isPopular
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700'
                       : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                   }`}
                 >

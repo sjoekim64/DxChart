@@ -369,13 +369,13 @@ ${pdfText}
             accept=".pdf"
             onChange={handleFileChange}
             disabled={isProcessing}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
           />
         </div>
 
         {isProcessing && (
           <div className="mb-4 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-2 text-sm text-gray-600">{t('pdf.processing')}</p>
           </div>
         )}

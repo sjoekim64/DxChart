@@ -116,7 +116,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
             {onViewPricing && (
               <button
                 onClick={onViewPricing}
-                className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm rounded-lg hover:from-emerald-600 hover:to-teal-700"
               >
                 {t('pricing.upgrade') || 'Upgrade Plan'}
               </button>
@@ -149,7 +149,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
             disabled={!canAdd}
             className={`px-6 py-3 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ${
               canAdd 
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500' 
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 focus:ring-emerald-500' 
                 : 'bg-gray-400 text-gray-200 cursor-not-allowed'
             }`}
           >
@@ -188,7 +188,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
               placeholder="e.g., 0001, KIM, JOHN"
             />
           </div>
@@ -208,7 +208,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                 return (
                   <div key={uniqueKey} className="grid grid-cols-[1fr_1.2fr_2fr_1fr_1fr_1fr] items-center py-3 text-sm">
                     <span className="font-medium">{patient.date || 'N/A'}</span>
-                    <span className="font-medium text-indigo-700">{patient.fileNo}</span>
+                    <span className="font-medium text-emerald-700">{patient.fileNo}</span>
                     <span className="truncate">{nameFormatted}</span>
                     <button
                       onClick={() => handleViewClick(patient)}
@@ -313,7 +313,7 @@ export const PatientList: React.FC<PatientListProps> = ({ patients, onSelectPati
                     <li key={patient.fileNo} className="py-3 hover:bg-gray-50 cursor-pointer" onClick={() => handleSelectPatientForFollowUp(patient)}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-lg font-medium text-indigo-600">{patient.name || `Patient (${patient.fileNo})`}</p>
+                          <p className="text-lg font-medium text-emerald-600">{patient.name || `Patient (${patient.fileNo})`}</p>
                           <p className="text-sm text-gray-500">File No: {patient.fileNo} | DOB: {patient.dob || 'N/A'}</p>
                         </div>
                         <button

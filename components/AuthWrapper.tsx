@@ -23,7 +23,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ initialMode = 'login',
       {onBackToLanding && (
         <button
           onClick={onBackToLanding}
-          className="absolute top-4 left-4 text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium"
+          className="absolute top-4 left-4 text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

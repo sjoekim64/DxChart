@@ -188,7 +188,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
             {tiers.map((tier) => (
               <div 
                 key={tier.id} 
-                className={`border rounded-lg p-4 ${tier.isPopular ? 'border-indigo-500 ring-2 ring-indigo-500' : 'border-gray-200'}`}
+                className={`border rounded-lg p-4 ${tier.isPopular ? 'border-emerald-500 ring-2 ring-emerald-500' : 'border-gray-200'}`}
               >
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -198,7 +198,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                     type="text"
                     value={tier.name}
                     onChange={(e) => updateTier(tier.id, 'name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -212,7 +212,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                       step="0.01"
                       value={tier.price}
                       onChange={(e) => updateTier(tier.id, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
@@ -222,7 +222,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                     <select
                       value={tier.currency}
                       onChange={(e) => updateTier(tier.id, 'currency', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="USD">USD</option>
                       <option value="KRW">KRW</option>
@@ -240,7 +240,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                   <select
                     value={tier.interval}
                     onChange={(e) => updateTier(tier.id, 'interval', e.target.value as 'month' | 'year')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="month">{t('pricing.monthly')}</option>
                     <option value="year">{t('pricing.yearly')}</option>
@@ -256,7 +256,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                     value={tier.stripePriceId || ''}
                     onChange={(e) => updateTier(tier.id, 'stripePriceId', e.target.value)}
                     placeholder="price_..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -266,7 +266,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                       type="checkbox"
                       checked={tier.isPopular || false}
                       onChange={(e) => updateTier(tier.id, 'isPopular', e.target.checked)}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                     <span className="ml-2 text-sm text-gray-700">{t('pricing.markPopular')}</span>
                   </label>
@@ -282,7 +282,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                         type="text"
                         value={feature}
                         onChange={(e) => updateFeature(tier.id, index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                       />
                       <button
                         onClick={() => removeFeature(tier.id, index)}
@@ -296,7 +296,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
                   ))}
                   <button
                     onClick={() => addFeature(tier.id)}
-                    className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -318,7 +318,7 @@ export const PricingSettings: React.FC<PricingSettingsProps> = ({ onClose }) => 
             <button
               onClick={savePricingSettings}
               disabled={isSaving}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-md hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50"
             >
               {isSaving ? t('common.saving') : t('common.save')}
             </button>

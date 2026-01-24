@@ -37,7 +37,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, id, name, value, onChang
         required={required}
         readOnly={readOnly}
         disabled={disabled}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm read-only:bg-gray-100 read-only:cursor-not-allowed disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm read-only:bg-gray-100 read-only:cursor-not-allowed disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
       {unit && (
         <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500">
@@ -65,7 +65,7 @@ const CheckboxGroup: React.FC<CheckboxGroupProps> = ({ options, selected, onChan
                     value={value}
                     checked={selected.includes(value)}
                     onChange={(e) => onChange(value, e.target.checked)}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                 />
                 <label htmlFor={value.replace(/\s/g, '')} className="ml-2 text-sm text-gray-600">{label}</label>
             </div>
@@ -91,7 +91,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({ options, name, selectedValue, o
                     value={value}
                     checked={selectedValue === value}
                     onChange={onChange}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                    className="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
                 />
                 <span className="ml-2 text-gray-700">{label}</span>
             </label>
@@ -1821,7 +1821,7 @@ Instructions:
                 name="clinicLogo"
                 onChange={handleLogoChange}
                 accept="image/png, image/jpeg, image/gif"
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
               />
               {formData.clinicLogo && (
                 <div className="mt-4">
@@ -1859,7 +1859,7 @@ Instructions:
               name="patientType"
               value={formData.patientType || 'cash'}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
             >
               <option value="cash">Cash</option>
               <option value="insurance">Insurance</option>
@@ -1886,7 +1886,7 @@ Instructions:
               value={formData.sex}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm disabled:bg-gray-100"
             >
               <option value="">Select...</option>
               <option value="M">Male</option>
@@ -1904,11 +1904,11 @@ Instructions:
                 <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
                 <div className="flex items-center space-x-2">
                     <div className="flex-1 relative">
-                        <input type="number" id="heightFt" name="heightFt" value={formData.heightFt} onChange={handleChange} placeholder="Feet" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                        <input type="number" id="heightFt" name="heightFt" value={formData.heightFt} onChange={handleChange} placeholder="Feet" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                         <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">ft</span>
                     </div>
                     <div className="flex-1 relative">
-                        <input type="number" id="heightIn" name="heightIn" value={formData.heightIn} onChange={handleChange} placeholder="Inches" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                        <input type="number" id="heightIn" name="heightIn" value={formData.heightIn} onChange={handleChange} placeholder="Inches" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                         <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">in</span>
                     </div>
                 </div>
@@ -1918,7 +1918,7 @@ Instructions:
               <label htmlFor="temp" className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
               <div className="flex items-center relative">
                   <button type="button" onClick={() => handleTempChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100 focus:outline-none">-</button>
-                  <input type="number" id="temp" name="temp" value={formData.temp} onChange={handleChange} step="0.1" className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <input type="number" id="temp" name="temp" value={formData.temp} onChange={handleChange} step="0.1" className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                   <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">°F</span>
                   <button type="button" onClick={() => handleTempChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100 focus:outline-none">+</button>
               </div>
@@ -1926,9 +1926,9 @@ Instructions:
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Blood Pressure</label>
                 <div className="flex items-center space-x-2">
-                    <input type="number" name="bpSystolic" value={formData.bpSystolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Systolic"/>
+                    <input type="number" name="bpSystolic" value={formData.bpSystolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" placeholder="Systolic"/>
                     <span className="text-gray-500">/</span>
-                    <input type="number" name="bpDiastolic" value={formData.bpDiastolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Diastolic"/>
+                    <input type="number" name="bpDiastolic" value={formData.bpDiastolic} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" placeholder="Diastolic"/>
                      <span className="text-sm text-gray-500 whitespace-nowrap">mmHg</span>
                 </div>
             </div>
@@ -1936,14 +1936,14 @@ Instructions:
               <label htmlFor="heartRate" className="block text-sm font-medium text-gray-700 mb-1">Heart Rate</label>
               <div className="flex items-center relative">
                   <button type="button" onClick={() => handleHeartRateChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100 focus:outline-none">-</button>
-                  <input type="number" id="heartRate" name="heartRate" value={formData.heartRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <input type="number" id="heartRate" name="heartRate" value={formData.heartRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                   <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">BPM</span>
                   <button type="button" onClick={() => handleHeartRateChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100 focus:outline-none">+</button>
               </div>
             </div>
             <div>
                 <label htmlFor="heartRhythm" className="block text-sm font-medium text-gray-700 mb-1">Heart Rhythm</label>
-                <select id="heartRhythm" name="heartRhythm" value={formData.heartRhythm} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <select id="heartRhythm" name="heartRhythm" value={formData.heartRhythm} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                   <option value="Normal">Normal</option>
                   <option value="Occasionally Irregular">Occasionally Irregular</option>
                   <option value="Constantly Irregular">Constantly Irregular</option>
@@ -1953,14 +1953,14 @@ Instructions:
               <label htmlFor="lungRate" className="block text-sm font-medium text-gray-700 mb-1">Lung Rate</label>
               <div className="flex items-center relative">
                   <button type="button" onClick={() => handleLungRateChange(false)} className="px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100">-</button>
-                  <input type="number" id="lungRate" name="lungRate" value={formData.lungRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                  <input type="number" id="lungRate" name="lungRate" value={formData.lungRate} onChange={handleChange} className="flex-1 px-3 py-2 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                   <span className="absolute right-12 pr-3 flex items-center text-sm text-gray-500 pointer-events-none">BPM</span>
                   <button type="button" onClick={() => handleLungRateChange(true)} className="px-3 py-2 border border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100">+</button>
               </div>
             </div>
              <div>
                 <label htmlFor="lungSound" className="block text-sm font-medium text-gray-700 mb-1">Lung Sound</label>
-                <select id="lungSound" name="lungSound" value={formData.lungSound} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <select id="lungSound" name="lungSound" value={formData.lungSound} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                   <option value="Clear">Clear</option>
                   <option value="Wheezing">Wheezing</option>
                   <option value="Crackles">Crackles</option>
@@ -2064,7 +2064,7 @@ Instructions:
                         name="improvedPercent"
                         value={formData.respondToCare?.improvedPercent || ''}
                       onChange={handleRespondToCareChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                       placeholder="0"
                   />
                     <span className="text-sm text-gray-600">%</span>
@@ -2081,7 +2081,7 @@ Instructions:
                         name="improvedDays"
                         value={formData.respondToCare?.improvedDays || ''}
                       onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                         placeholder="0"
                   />
                     <span className="text-sm text-gray-600">days</span>
@@ -2162,7 +2162,7 @@ Instructions:
                       name="houseworkDiscomfort"
                       value={formData.respondToCare?.houseworkDiscomfort || ''}
                         onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                   >
                     <option value="">Select...</option>
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
@@ -2179,7 +2179,7 @@ Instructions:
                       name="liftingDiscomfort"
                       value={formData.respondToCare?.liftingDiscomfort || ''}
                       onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                   >
                     <option value="">Select...</option>
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
@@ -2196,7 +2196,7 @@ Instructions:
                       name="sleepQualityDiscomfort"
                       value={formData.respondToCare?.sleepQualityDiscomfort || ''}
                     onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                 >
                   <option value="">Select...</option>
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
@@ -2213,7 +2213,7 @@ Instructions:
                       name="commuteDiscomfort"
                       value={formData.respondToCare?.commuteDiscomfort || ''}
                     onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                 >
                   <option value="">Select...</option>
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
@@ -2238,7 +2238,7 @@ Instructions:
                       name="avoidedActivitiesCount"
                       value={formData.respondToCare?.avoidedActivitiesCount || ''}
                       onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                       placeholder="0"
                   />
                 </div>
@@ -2252,7 +2252,7 @@ Instructions:
                       name="painMedicationFrequency"
                       value={formData.respondToCare?.painMedicationFrequency || ''}
                       onChange={handleRespondToCareChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                       placeholder="0"
                   />
                 </div>
@@ -2295,7 +2295,7 @@ Instructions:
                   value={formData.respondToCare?.notes || ''}
                   onChange={handleRespondToCareChange}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                   placeholder="Examples: Activities avoided due to pain (e.g., golf, tennis, running). Medication names (e.g., pain killer, ibuprofen, Tylenol). Any other relevant details about patient's response to treatment..."
               />
             </div>
@@ -2355,8 +2355,8 @@ Instructions:
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Onset</label>
                   <div className="flex items-center space-x-2">
-                    <input type="number" name="onsetValue" value={formData.chiefComplaint.onsetValue} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 3" />
-                    <select name="onsetUnit" value={formData.chiefComplaint.onsetUnit} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <input type="number" name="onsetValue" value={formData.chiefComplaint.onsetValue} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" placeholder="e.g., 3" />
+                    <select name="onsetUnit" value={formData.chiefComplaint.onsetUnit} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                       <option value="">Select unit...</option>
                       <option value="days">Days</option>
                       <option value="weeks">Weeks</option>
@@ -2407,9 +2407,9 @@ Instructions:
                  <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                  <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">P/L = </span>
-                    <input type="number" name="severityScore" value={formData.chiefComplaint.severityScore} onChange={handleComplaintChange} className="w-16 px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    <input type="number" name="severityScore" value={formData.chiefComplaint.severityScore} onChange={handleComplaintChange} className="w-16 px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
                      <span className="text-sm text-gray-600">/ 10</span>
-                     <select name="severityDescription" value={formData.chiefComplaint.severityDescription} onChange={handleComplaintChange} className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                     <select name="severityDescription" value={formData.chiefComplaint.severityDescription} onChange={handleComplaintChange} className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                          <option value="">Select...</option>
                          <option value="Minimal">Minimal (최소)</option>
                          <option value="Slight">Slight (약간)</option>
@@ -2538,7 +2538,7 @@ Instructions:
                                   type="number"
                                   value={jointData.flexion || ''}
                                   onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2553,7 +2553,7 @@ Instructions:
                                   type="number"
                                   value={jointData.extension || ''}
                                   onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2568,7 +2568,7 @@ Instructions:
                                         type="number"
                                         value={jointData.lateralFlexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'lateralFlexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2583,7 +2583,7 @@ Instructions:
                                         type="number"
                                         value={jointData.rotation || ''}
                                         onChange={(e) => handleROMChange(joint, 'rotation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2604,7 +2604,7 @@ Instructions:
                                         type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2619,7 +2619,7 @@ Instructions:
                                         type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2634,7 +2634,7 @@ Instructions:
                                         type="number"
                                         value={jointData.lateralFlexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'lateralFlexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2649,7 +2649,7 @@ Instructions:
                                         type="number"
                                         value={jointData.rotation || ''}
                                         onChange={(e) => handleROMChange(joint, 'rotation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2670,7 +2670,7 @@ Instructions:
                                         type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2685,7 +2685,7 @@ Instructions:
                                         type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2700,7 +2700,7 @@ Instructions:
                                   type="number"
                                   value={jointData.abduction || ''}
                                   onChange={(e) => handleROMChange(joint, 'abduction', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2715,7 +2715,7 @@ Instructions:
                                   type="number"
                                   value={jointData.adduction || ''}
                                   onChange={(e) => handleROMChange(joint, 'adduction', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2730,7 +2730,7 @@ Instructions:
                                   type="number"
                                   value={jointData.internalRotation || ''}
                                   onChange={(e) => handleROMChange(joint, 'internalRotation', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2745,7 +2745,7 @@ Instructions:
                                   type="number"
                                   value={jointData.externalRotation || ''}
                                   onChange={(e) => handleROMChange(joint, 'externalRotation', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2766,7 +2766,7 @@ Instructions:
                                   type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2781,7 +2781,7 @@ Instructions:
                                   type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2796,7 +2796,7 @@ Instructions:
                                         type="number"
                                         value={jointData.abduction || ''}
                                         onChange={(e) => handleROMChange(joint, 'abduction', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2811,7 +2811,7 @@ Instructions:
                                         type="number"
                                         value={jointData.adduction || ''}
                                         onChange={(e) => handleROMChange(joint, 'adduction', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2826,7 +2826,7 @@ Instructions:
                                         type="number"
                                         value={jointData.internalRotation || ''}
                                         onChange={(e) => handleROMChange(joint, 'internalRotation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2841,7 +2841,7 @@ Instructions:
                                         type="number"
                                         value={jointData.externalRotation || ''}
                                         onChange={(e) => handleROMChange(joint, 'externalRotation', e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                   placeholder="0"
                                 />
                                 <span className="text-xs text-gray-500">°</span>
@@ -2862,7 +2862,7 @@ Instructions:
                                         type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2877,7 +2877,7 @@ Instructions:
                                         type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2892,7 +2892,7 @@ Instructions:
                                         type="number"
                                         value={jointData.pronation || ''}
                                         onChange={(e) => handleROMChange(joint, 'pronation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2907,7 +2907,7 @@ Instructions:
                                         type="number"
                                         value={jointData.supination || ''}
                                         onChange={(e) => handleROMChange(joint, 'supination', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2928,7 +2928,7 @@ Instructions:
                                         type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2943,7 +2943,7 @@ Instructions:
                                         type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2958,7 +2958,7 @@ Instructions:
                                         type="number"
                                         value={jointData.radialDeviation || ''}
                                         onChange={(e) => handleROMChange(joint, 'radialDeviation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2973,7 +2973,7 @@ Instructions:
                                         type="number"
                                         value={jointData.ulnarDeviation || ''}
                                         onChange={(e) => handleROMChange(joint, 'ulnarDeviation', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -2994,7 +2994,7 @@ Instructions:
                                         type="number"
                                         value={jointData.flexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'flexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3009,7 +3009,7 @@ Instructions:
                                         type="number"
                                         value={jointData.extension || ''}
                                         onChange={(e) => handleROMChange(joint, 'extension', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3030,7 +3030,7 @@ Instructions:
                                         type="number"
                                         value={jointData.dorsiflexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'dorsiflexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3045,7 +3045,7 @@ Instructions:
                                         type="number"
                                         value={jointData.plantarflexion || ''}
                                         onChange={(e) => handleROMChange(joint, 'plantarflexion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3060,7 +3060,7 @@ Instructions:
                                         type="number"
                                         value={jointData.inversion || ''}
                                         onChange={(e) => handleROMChange(joint, 'inversion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3075,7 +3075,7 @@ Instructions:
                                         type="number"
                                         value={jointData.eversion || ''}
                                         onChange={(e) => handleROMChange(joint, 'eversion', e.target.value)}
-                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                                         placeholder="0"
                                       />
                                       <span className="text-xs text-gray-500">°</span>
@@ -3125,7 +3125,7 @@ Instructions:
                             value={jointData.notes || ''}
                             onChange={(e) => handleROMNotesChange(joint, e.target.value)}
                             rows={2}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                             placeholder="Additional notes..."
                           />
                         </div>
@@ -3182,7 +3182,7 @@ Instructions:
           <div className="grid grid-cols-3 gap-4">
             <div>
                 <label htmlFor="frequency" className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                <select id="frequency" name="frequency" value={formData.chiefComplaint.frequency} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <select id="frequency" name="frequency" value={formData.chiefComplaint.frequency} onChange={handleComplaintChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                   <option value="">Select...</option>
                   <option value="Occasional">Occasional (가끔)</option>
                   <option value="Intermittent">Intermittent (간헐적)</option>
@@ -3232,7 +3232,7 @@ Instructions:
                 value={formData.chiefComplaint.remark}
                 onChange={handleComplaintChange}
                 rows={isFollowUp ? 5 : 2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                 placeholder={isFollowUp ? "Describe any changes in symptoms, progress, or new issues since the last visit." : ""}
              />
           </div>
@@ -3315,7 +3315,7 @@ Instructions:
                     value={formData.chiefComplaint.presentIllness}
                     onChange={handleComplaintChange}
                     rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50"
                     placeholder={isFollowUp 
                         ? "Click 'Regenerate with AI' to auto-generate based on Chief Complaint and Response to Previous Care, or fill in manually. Include how the patient responded to previous treatment."
                         : "Click 'Regenerate with AI' to auto-generate based on Chief Complaint details, or fill in manually."}
@@ -3339,7 +3339,7 @@ Instructions:
                   value={formData.chiefComplaint.westernMedicalDiagnosis}
                   onChange={handleComplaintChange}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                   placeholder="e.g., Lumbar disc herniation"
                 />
             </div>
@@ -3657,7 +3657,7 @@ Instructions:
                                                 handleRosArrayChange('throatNose', 'symptoms', o.value, e.target.checked);
                                             }
                                         }}
-                                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                                 />
                                 <label htmlFor={`throatNose_${o.value}`} className="ml-2 text-sm text-gray-600">{o.label}</label>
                             </div>
@@ -3680,7 +3680,7 @@ Instructions:
                                         value={o.value}
                                         checked={formData.reviewOfSystems.throatNose.mucusColor.includes(o.value)}
                                         onChange={(e) => handleRosArrayChange('throatNose', 'mucusColor', o.value, e.target.checked)}
-                                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                                     />
                                     <label htmlFor={`mucusColor_${o.value}`} className="ml-2 text-sm text-gray-600">{o.label}</label>
                                 </div>
@@ -3819,7 +3819,7 @@ Instructions:
                                 id="urineColor" 
                                 value={formData.reviewOfSystems.urine.color || 'pale yellow'} 
                                 onChange={e => handleReviewOfSystemsChange('urine', 'color', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                             >
                                 <option value="pale yellow">Pale Yellow (연한 노란색) - Normal</option>
                                 <option value="yellow">Yellow (노란색)</option>
@@ -3843,9 +3843,9 @@ Instructions:
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
                         <div className="flex items-center space-x-2">
-                            <input type="text" name="stoolFrequencyValue" value={formData.reviewOfSystems.stool.frequencyValue} onChange={e => handleReviewOfSystemsChange('stool', 'frequencyValue', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 1 or 2-3" />
+                            <input type="text" name="stoolFrequencyValue" value={formData.reviewOfSystems.stool.frequencyValue} onChange={e => handleReviewOfSystemsChange('stool', 'frequencyValue', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" placeholder="e.g., 1 or 2-3" />
                             <span className="text-gray-500">time(s) per</span>
-                            <select name="stoolFrequencyUnit" value={formData.reviewOfSystems.stool.frequencyUnit} onChange={e => handleReviewOfSystemsChange('stool', 'frequencyUnit', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <select name="stoolFrequencyUnit" value={formData.reviewOfSystems.stool.frequencyUnit} onChange={e => handleReviewOfSystemsChange('stool', 'frequencyUnit', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
                               <option value="day">Day (일)</option>
                               <option value="week">Week (주)</option>
                             </select>
@@ -3862,7 +3862,7 @@ Instructions:
                                 id="stoolColor" 
                                 value={formData.reviewOfSystems.stool.color || 'brown'} 
                                 onChange={e => handleReviewOfSystemsChange('stool', 'color', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                             >
                                 <option value="brown">Brown (갈색) - Normal</option>
                                 <option value="dark brown">Dark Brown (진한 갈색)</option>
@@ -4056,7 +4056,7 @@ Instructions:
                     value={formData.tongue.coating.notes}
                     onChange={(e) => handleTongueCoatingChange('notes', e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                     placeholder="e.g., Geographic, covering Stomach/Spleen area"
                   />
                 </div>
@@ -4126,7 +4126,7 @@ Instructions:
                         value={formData.pulse.cun || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, cun: e.target.value } }))}
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                         placeholder="Pulse condition at Cun position"
                       />
                   </div>
@@ -4138,7 +4138,7 @@ Instructions:
                         value={formData.pulse.guan || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, guan: e.target.value } }))}
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                         placeholder="Pulse condition at Guan position"
                       />
                   </div>
@@ -4150,7 +4150,7 @@ Instructions:
                         value={formData.pulse.chi || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, pulse: { ...prev.pulse, chi: e.target.value } }))}
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                         placeholder="Pulse condition at Chi position"
                       />
                   </div>
@@ -4173,7 +4173,7 @@ Instructions:
                     value={formData.pulse.notes}
                     onChange={handlePulseNotesChange}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                     placeholder="Other pulse diagnosis related notes"
                   />
               </div>
@@ -4281,7 +4281,7 @@ Instructions:
                    value={formData.diagnosisAndTreatment.etiology}
                    onChange={handleDiagnosisChange}
                    rows={2}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                  />
              </div>
              <div>
@@ -4302,7 +4302,7 @@ Instructions:
                    value={formData.diagnosisAndTreatment.tcmDiagnosis}
                    onChange={handleDiagnosisChange}
                    rows={3}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                  />
                </div>
                <div>
@@ -4323,7 +4323,7 @@ Instructions:
                    value={formData.diagnosisAndTreatment.treatmentPrinciple}
                    onChange={handleDiagnosisChange}
                    rows={3}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                  />
                </div>
              </div>
@@ -4377,7 +4377,7 @@ Instructions:
                   )}
                 </div>
                 </div>
-                <textarea id="acupuncturePoints" name="acupuncturePoints" value={formData.diagnosisAndTreatment.acupuncturePoints} onChange={handleDiagnosisChange} rows={8} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono whitespace-pre-wrap" placeholder="각 항목을 한 줄씩 입력하세요&#10;예:&#10;TCM Body: ST36, SP6, LI4, LV3&#10;Trigger Point: Upper trapezius, Levator scapulae"></textarea>
+                <textarea id="acupuncturePoints" name="acupuncturePoints" value={formData.diagnosisAndTreatment.acupuncturePoints} onChange={handleDiagnosisChange} rows={8} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm font-mono whitespace-pre-wrap" placeholder="각 항목을 한 줄씩 입력하세요&#10;예:&#10;TCM Body: ST36, SP6, LI4, LV3&#10;Trigger Point: Upper trapezius, Levator scapulae"></textarea>
             </div>
             <div>
                 <div className="flex items-center justify-between mb-1">
@@ -4391,7 +4391,7 @@ Instructions:
                     {improvingFields.has('diagnosisAndTreatment.herbalTreatment') ? 'Improving...' : '✎ Improve'}
                   </button>
                 </div>
-                <textarea id="herbalTreatment" name="herbalTreatment" value={formData.diagnosisAndTreatment.herbalTreatment} onChange={handleDiagnosisChange} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                <textarea id="herbalTreatment" name="herbalTreatment" value={formData.diagnosisAndTreatment.herbalTreatment} onChange={handleDiagnosisChange} rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"></textarea>
             </div>
              <div className="grid grid-cols-3 gap-4">
                 <InputField label="CPT" id="cpt" name="cpt" value={formData.diagnosisAndTreatment.cpt} onChange={handleDiagnosisChange} />
@@ -4428,7 +4428,7 @@ Instructions:
       </div>
 
       <div className="flex justify-end items-center pt-8 mt-8 border-t sticky bottom-0 bg-white pb-4">
-          <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isGeneratingHpi || isDiagnosing}>
+          <button type="submit" className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled={isGeneratingHpi || isDiagnosing}>
             Save & View Chart
           </button>
       </div>

@@ -128,7 +128,7 @@ export const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack, on
             id="clinicName"
             value={clinicName}
             onChange={(e) => setClinicName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
             required
           />
         </div>
@@ -142,7 +142,7 @@ export const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack, on
             id="clinicLogo"
             accept="image/*"
             onChange={handleLogoChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
           />
           {clinicLogo && (
             <div className="mt-2">
@@ -160,7 +160,7 @@ export const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack, on
             id="therapistName"
             value={therapistName}
             onChange={(e) => setTherapistName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
             required
           />
         </div>
@@ -174,7 +174,7 @@ export const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack, on
             id="therapistLicenseNo"
             value={therapistLicenseNo}
             onChange={(e) => setTherapistLicenseNo(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
             required
           />
         </div>
@@ -190,7 +190,7 @@ export const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack, on
           <button
             type="submit"
             disabled={isSaving}
-            className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
