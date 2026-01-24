@@ -1,7 +1,7 @@
-# Patient Chart System
+# Hoelinone (혈인원) - Patient Chart System
 
 ## Overview
-A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. Korean-language medical charting application for Oriental medicine clinics.
+A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. Multilingual medical charting application for Oriental medicine clinics. Brand name: Hoelinone (혈인원).
 
 ## Tech Stack
 - **Frontend:** React 19, TypeScript

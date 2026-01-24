@@ -12,7 +12,7 @@ export const LANGUAGES: { code: Language; name: string; nativeName: string }[] =
 export const translations: Record<Language, Record<string, string | string[]>> = {
   en: {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': 'Hoelinone',
     'app.subtitle': 'Patient Chart Management System',
     'app.description': 'A digital patient chart solution for Oriental medicine clinics. Experience efficient medical records and systematic patient management.',
     'app.getStarted': 'Get Started',
@@ -50,6 +50,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': 'Ready to transform your clinic?',
     'footer.product': 'Product',
     'footer.contact': 'Contact',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': 'Simple, Transparent Pricing',
+    'pricing.landingSubtitle': 'Choose the plan that fits your clinic needs',
+    'pricing.basicName': 'Basic',
+    'pricing.proName': 'Professional',
+    'pricing.entName': 'Enterprise',
+    'pricing.popular': 'Most Popular',
+    'pricing.basicFeature1': 'Up to 50 patients',
+    'pricing.basicFeature2': 'Basic charting',
+    'pricing.basicFeature3': 'Email support',
+    'pricing.proFeature1': 'Up to 500 patients',
+    'pricing.proFeature2': 'Advanced charting',
+    'pricing.proFeature3': 'AI assistance',
+    'pricing.proFeature4': 'Priority support',
+    'pricing.entFeature1': 'Unlimited patients',
+    'pricing.entFeature2': 'All features included',
+    'pricing.entFeature3': 'Dedicated support',
+    'pricing.entFeature4': 'Custom integrations',
     
     // Auth
     'auth.loginTitle': 'Login',
@@ -293,7 +312,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   
   ko: {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': '혈인원',
     'app.subtitle': '환자 차트 관리 시스템',
     'app.description': '한의원을 위한 디지털 환자 차트 솔루션. 효율적인 진료 기록과 체계적인 환자 관리를 경험하세요.',
     'app.getStarted': '시작하기',
@@ -331,6 +350,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': '한의원을 혁신할 준비가 되셨나요?',
     'footer.product': '제품',
     'footer.contact': '연락처',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': '간단하고 투명한 가격 정책',
+    'pricing.landingSubtitle': '한의원에 맞는 플랜을 선택하세요',
+    'pricing.basicName': '베이직',
+    'pricing.proName': '프로페셔널',
+    'pricing.entName': '엔터프라이즈',
+    'pricing.popular': '가장 인기',
+    'pricing.basicFeature1': '최대 50명 환자',
+    'pricing.basicFeature2': '기본 차트 작성',
+    'pricing.basicFeature3': '이메일 지원',
+    'pricing.proFeature1': '최대 500명 환자',
+    'pricing.proFeature2': '고급 차트 작성',
+    'pricing.proFeature3': 'AI 어시스턴트',
+    'pricing.proFeature4': '우선 지원',
+    'pricing.entFeature1': '무제한 환자',
+    'pricing.entFeature2': '모든 기능 포함',
+    'pricing.entFeature3': '전담 지원',
+    'pricing.entFeature4': '맞춤 통합',
     
     // Auth
     'auth.loginTitle': '로그인',
@@ -574,7 +612,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   
   'zh-TW': {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': '혈인원',
     'app.subtitle': '病患圖表管理系統',
     'app.description': '專為中醫診所設計的數位病患圖表解決方案。體驗高效的醫療記錄和系統化的病患管理。',
     'app.getStarted': '開始使用',
@@ -612,6 +650,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': '準備好轉型您的診所了嗎？',
     'footer.product': '產品',
     'footer.contact': '聯繫方式',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': '簡單透明的價格方案',
+    'pricing.landingSubtitle': '選擇適合您診所的方案',
+    'pricing.basicName': '基本版',
+    'pricing.proName': '專業版',
+    'pricing.entName': '企業版',
+    'pricing.popular': '最受歡迎',
+    'pricing.basicFeature1': '最多50位病患',
+    'pricing.basicFeature2': '基本圖表功能',
+    'pricing.basicFeature3': '電子郵件支援',
+    'pricing.proFeature1': '最多500位病患',
+    'pricing.proFeature2': '進階圖表功能',
+    'pricing.proFeature3': 'AI助理',
+    'pricing.proFeature4': '優先支援',
+    'pricing.entFeature1': '無限病患',
+    'pricing.entFeature2': '包含所有功能',
+    'pricing.entFeature3': '專屬支援',
+    'pricing.entFeature4': '客製化整合',
     
     // Auth
     'auth.loginTitle': '登入',
@@ -855,7 +912,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   
   'zh-CN': {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': '혈인원',
     'app.subtitle': '患者病历管理系统',
     'app.description': '面向中医诊所的数字化患者病历解决方案。体验高效的医疗记录和系统化的患者管理。',
     'app.getStarted': '开始使用',
@@ -893,6 +950,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': '准备好转型您的诊所了吗？',
     'footer.product': '产品',
     'footer.contact': '联系方式',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': '简单透明的价格方案',
+    'pricing.landingSubtitle': '选择适合您诊所的方案',
+    'pricing.basicName': '基础版',
+    'pricing.proName': '专业版',
+    'pricing.entName': '企业版',
+    'pricing.popular': '最受欢迎',
+    'pricing.basicFeature1': '最多50位患者',
+    'pricing.basicFeature2': '基本病历功能',
+    'pricing.basicFeature3': '邮件支持',
+    'pricing.proFeature1': '最多500位患者',
+    'pricing.proFeature2': '高级病历功能',
+    'pricing.proFeature3': 'AI助手',
+    'pricing.proFeature4': '优先支持',
+    'pricing.entFeature1': '无限患者',
+    'pricing.entFeature2': '包含所有功能',
+    'pricing.entFeature3': '专属支持',
+    'pricing.entFeature4': '定制集成',
     
     // Auth
     'auth.loginTitle': '登录',
@@ -1136,7 +1212,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   
   ja: {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': '혈인원',
     'app.subtitle': '患者カルテ管理システム',
     'app.description': '東洋医学クリニック向けのデジタル患者カルテソリューション。効率的な診療記録と体系的な患者管理を体験してください。',
     'app.getStarted': '始める',
@@ -1174,6 +1250,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': 'クリニックを変革する準備はできていますか？',
     'footer.product': '製品',
     'footer.contact': 'お問い合わせ',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': 'シンプルで透明な料金プラン',
+    'pricing.landingSubtitle': 'クリニックに合ったプランをお選びください',
+    'pricing.basicName': 'ベーシック',
+    'pricing.proName': 'プロフェッショナル',
+    'pricing.entName': 'エンタープライズ',
+    'pricing.popular': '一番人気',
+    'pricing.basicFeature1': '最大50名の患者',
+    'pricing.basicFeature2': '基本的なカルテ機能',
+    'pricing.basicFeature3': 'メールサポート',
+    'pricing.proFeature1': '最大500名の患者',
+    'pricing.proFeature2': '高度なカルテ機能',
+    'pricing.proFeature3': 'AIアシスタント',
+    'pricing.proFeature4': '優先サポート',
+    'pricing.entFeature1': '無制限の患者',
+    'pricing.entFeature2': 'すべての機能を含む',
+    'pricing.entFeature3': '専任サポート',
+    'pricing.entFeature4': 'カスタム統合',
     
     // Auth
     'auth.loginTitle': 'ログイン',
@@ -1417,7 +1512,7 @@ export const translations: Record<Language, Record<string, string | string[]>> =
   
   es: {
     // Landing Page
-    'app.title': 'Patient Chart',
+    'app.title': 'Hoelinone',
     'app.subtitle': 'Sistema de Gestión de Fichas de Pacientes',
     'app.description': 'Una solución digital de fichas de pacientes para clínicas de medicina oriental. Experimente registros médicos eficientes y gestión sistemática de pacientes.',
     'app.getStarted': 'Comenzar',
@@ -1455,6 +1550,25 @@ export const translations: Record<Language, Record<string, string | string[]>> =
     'cta.title': '¿Listo para transformar su clínica?',
     'footer.product': 'Producto',
     'footer.contact': 'Contacto',
+    
+    // Pricing Section (Landing Page)
+    'pricing.landingTitle': 'Precios Simples y Transparentes',
+    'pricing.landingSubtitle': 'Elija el plan que se adapte a las necesidades de su clínica',
+    'pricing.basicName': 'Básico',
+    'pricing.proName': 'Profesional',
+    'pricing.entName': 'Empresa',
+    'pricing.popular': 'Más Popular',
+    'pricing.basicFeature1': 'Hasta 50 pacientes',
+    'pricing.basicFeature2': 'Fichas básicas',
+    'pricing.basicFeature3': 'Soporte por correo',
+    'pricing.proFeature1': 'Hasta 500 pacientes',
+    'pricing.proFeature2': 'Fichas avanzadas',
+    'pricing.proFeature3': 'Asistente de IA',
+    'pricing.proFeature4': 'Soporte prioritario',
+    'pricing.entFeature1': 'Pacientes ilimitados',
+    'pricing.entFeature2': 'Todas las funciones',
+    'pricing.entFeature3': 'Soporte dedicado',
+    'pricing.entFeature4': 'Integraciones personalizadas',
     
     // Auth
     'auth.loginTitle': 'Iniciar Sesión',
