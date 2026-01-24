@@ -1,10 +1,15 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import Stripe from "stripe";
 import { storage } from "./storage";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || "5000", 10);
 
 // Stripe setup (optional - will work in demo mode without key)
 const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -440,7 +445,18 @@ async function startServer() {
     console.error("Error seeding pricing tiers:", error);
   }
 
-  app.listen(PORT, () => {
+  // Serve static files in production
+  const distPath = path.join(__dirname, "..", "dist");
+  app.use(express.static(distPath));
+  
+  // Handle client-side routing - serve index.html for all non-API routes
+  app.get("*", (req, res) => {
+    if (!req.path.startsWith("/api")) {
+      res.sendFile(path.join(distPath, "index.html"));
+    }
+  });
+
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
