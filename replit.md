@@ -46,6 +46,8 @@ A React + TypeScript patient chart system built with Vite and Tailwind CSS v4. K
   - LanguageContext and LanguageSelector components for language switching
   - Language preference saved to localStorage (key: 'app_language')
   - All major components translated: LandingPage, AuthWrapper, LoginForm, RegisterForm, AdminDashboard, NotificationSettings, AISettings
+  - Test message content (email, SMS, Teams) fully localized in all languages
+  - Semantic translation key organization: auth.*, admin.*, notification.*, ai.*, common.*
 - Enhanced notification settings with EmailJS and Twilio configuration
 - Added AI API settings management in admin dashboard
 - Added landing page with service introduction
